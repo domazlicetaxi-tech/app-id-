@@ -105,11 +105,11 @@
 
         /* --- STYLY ADMIN --- */
         .admin-title { font-size: 18px; font-weight: bold; color: var(--green-dark); margin-bottom: 15px; border-bottom: 2px solid var(--green-light); padding-bottom: 5px; }
-        .driver-item { display: flex; flex-direction: column; padding: 10px; background: #f1f5f9; border-radius: 6px; margin-bottom: 8px; font-size: 13px; border: 1px solid #e2e8f0; }
-        .driver-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-        .driver-actions { display: flex; gap: 6px; justify-content: flex-end; }
-        .btn-edit { background: var(--warning-amber); color: #000; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
-        .btn-delete { background: var(--danger-red); color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .driver-item { display: flex; flex-direction: column; padding: 12px; background: #f1f5f9; border-radius: 6px; margin-bottom: 10px; font-size: 13px; border: 1px solid #cbd5e1; }
+        .driver-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 15px; }
+        .driver-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+        .btn-edit { background: var(--warning-amber); color: #000; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
+        .btn-delete { background: var(--danger-red); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
         .btn-action { background: var(--driver-blue); color: white; border: none; padding: 10px; border-radius: 6px; width: 100%; cursor: pointer; font-weight: bold; font-size: 14px; text-transform: uppercase; margin-top: 10px; }
 
         /* --- STYLY OBJEDNÁVEK --- */
@@ -164,7 +164,7 @@
             <h2 style="font-size: 16px; margin-top: 0; margin-bottom: 20px; color: var(--text-dark);">Přihlášení řidiče</h2>
             <div class="login-group">
                 <label>Přihlašovací jméno</label>
-                <input type="text" id="login-user" placeholder="Např. ridic">
+                <input type="text" id="login-user" placeholder="Např. pavel.n">
             </div>
             <div class="login-group">
                 <label>Heslo</label>
@@ -286,20 +286,30 @@
         <!-- STAV 4: ADMINISTRACE -->
         <div id="section-admin" class="panel-content">
             <button class="btn-action" onclick="closeAdmin()" style="margin-bottom:15px; background:#64748b; margin-top: 0;">⬅ Zpět do aplikace</button>
-            <div class="admin-title">Evidence řidičů</div>
+            
+            <div class="admin-title">Evidence řidičů - Nový řidič</div>
             <div style="margin-bottom: 15px;">
-                <label style="font-size:11px; margin-bottom:2px;">Jméno a příjmení</label>
-                <input type="text" id="new-driver-name" placeholder="Pavel Novák">
+                <label style="font-size:11px; margin-bottom:2px;">Jméno (Toto uvidí zákazník)</label>
+                <input type="text" id="new-driver-firstname" placeholder="Např. Pavel">
             </div>
             <div style="margin-bottom: 15px;">
-                <label style="font-size:11px; margin-bottom:2px;">Uživatelské jméno</label>
-                <input type="text" id="new-driver-user" placeholder="pavel.n">
+                <label style="font-size:11px; margin-bottom:2px;">Příjmení</label>
+                <input type="text" id="new-driver-lastname" placeholder="Např. Novák">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="font-size:11px; margin-bottom:2px;">Uživatelské jméno (Pro přihlášení)</label>
+                <input type="text" id="new-driver-user" placeholder="Např. pavel.n">
             </div>
             <div style="margin-bottom: 15px;">
                 <label style="font-size:11px; margin-bottom:2px;">Heslo</label>
                 <input type="password" id="new-driver-pass" placeholder="••••••">
             </div>
             <button class="btn-action" onclick="registerDriver()" style="background:var(--green-primary); margin-top: 0;">➕ Zaevidovat řidiče</button>
+
+            <div class="admin-title" style="margin-top: 25px;">Seznam zaregistrovaných řidičů</div>
+            <div id="admin-drivers-list">
+                <!-- Zde se načte seznam z databáze -->
+            </div>
         </div>
 
         <!-- STAV 5: OBJEDNÁVKY -->
@@ -349,7 +359,15 @@
 
     function handleAdminClick() {
         clickCount++; clearTimeout(clickTimer); clickTimer = setTimeout(() => { clickCount = 0; }, 400);
-        if (clickCount >= 5) { clickCount = 0; if (prompt("Zadejte heslo:") === "26 3654") { showSection('section-admin'); } else { alert("Neplatné heslo."); } }
+        if (clickCount >= 5) { 
+            clickCount = 0; 
+            if (prompt("Zadejte administrátorské heslo:") === "26 3654") { 
+                showSection('section-admin'); 
+                loadDriversList(); // Načte seznam řidičů rovnou po vstupu
+            } else { 
+                alert("Neplatné heslo."); 
+            } 
+        }
     }
 
     function showSection(sectionId) {
@@ -374,7 +392,12 @@
             const snapshot = await db.collection("system_drivers").get(); let found = false;
             snapshot.forEach(doc => {
                 if (doc.data().username === u && doc.data().password === p) {
-                    found = true; localStorage.setItem('taxi_green_driver_logged', 'true'); localStorage.setItem('taxi_green_driver_name', doc.data().fullname.toUpperCase());
+                    found = true; 
+                    localStorage.setItem('taxi_green_driver_logged', 'true'); 
+                    // Pro zobrazení v aplikaci použijeme celé jméno, které si spojíme z Jména a Příjmení z DB
+                    const fullName = (doc.data().firstname + " " + doc.data().lastname).toUpperCase();
+                    localStorage.setItem('taxi_green_driver_name', fullName);
+                    
                     document.getElementById('login-error').style.display = 'none'; document.getElementById('login-pass').value = ''; checkLoginStatus();
                 }
             });
@@ -383,6 +406,114 @@
     }
     function logoutDriver() { localStorage.removeItem('taxi_green_driver_logged'); localStorage.removeItem('taxi_green_driver_name'); checkLoginStatus(); }
     function closeAdmin() { checkLoginStatus(); }
+
+    // --- MODUL ADMINISTRACE ---
+    async function registerDriver() {
+        if (!db) return alert("Chyba spojení s databází.");
+        
+        const fname = document.getElementById('new-driver-firstname').value.trim();
+        const lname = document.getElementById('new-driver-lastname').value.trim();
+        const user = document.getElementById('new-driver-user').value.trim().toLowerCase();
+        const pass = document.getElementById('new-driver-pass').value.trim();
+
+        if (!fname || !lname || !user || !pass) {
+            return alert("Vyplňte prosím všechna pole (Jméno, Příjmení, Uživatelské jméno a Heslo).");
+        }
+
+        try {
+            // Kontrola, zda uživatel už náhodou neexistuje
+            const check = await db.collection("system_drivers").where("username", "==", user).get();
+            if (!check.empty) {
+                return alert("Toto uživatelské jméno už někdo má. Zvolte prosím jiné (např. pridejte cislo).");
+            }
+
+            // Uložení nového řidiče
+            await db.collection("system_drivers").add({
+                firstname: fname,
+                lastname: lname,
+                username: user,
+                password: pass
+            });
+
+            alert(`Řidič ${fname} ${lname} byl úspěšně zaevidován.`);
+            
+            // Vymazání formuláře po úspěšném odeslání
+            document.getElementById('new-driver-firstname').value = '';
+            document.getElementById('new-driver-lastname').value = '';
+            document.getElementById('new-driver-user').value = '';
+            document.getElementById('new-driver-pass').value = '';
+            
+            loadDriversList(); // Automaticky aktualizuje vypsaný seznam
+        } catch (error) {
+            alert("Chyba při ukládání do databáze: " + error.message);
+        }
+    }
+
+    async function loadDriversList() {
+        const container = document.getElementById('admin-drivers-list');
+        container.innerHTML = '<p style="font-size:13px; color:var(--text-muted);">Načítám řidiče z databáze...</p>';
+        
+        if (!db) return;
+
+        try {
+            const snapshot = await db.collection("system_drivers").get();
+            container.innerHTML = '';
+            
+            if (snapshot.empty) {
+                container.innerHTML = '<p style="font-size:13px; color:var(--text-muted); font-style:italic;">Zatím nejsou zaevidováni žádní řidiči.</p>';
+                return;
+            }
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const id = doc.id;
+                
+                const div = document.createElement('div');
+                div.className = 'driver-item';
+                div.innerHTML = `
+                    <div class="driver-item-header">
+                        <strong>${data.firstname} ${data.lastname}</strong>
+                        <span style="color:var(--text-muted); font-size:12px;">Login: <b>${data.username}</b></span>
+                    </div>
+                    <div style="margin-bottom: 8px; font-size: 12px;">Aktuální heslo: <span style="letter-spacing: 1px; font-family: monospace;">${data.password}</span></div>
+                    <div class="driver-actions">
+                        <button class="btn-edit" onclick="editDriverPassword('${id}', '${data.firstname} ${data.lastname}')">Změnit heslo</button>
+                        <button class="btn-delete" onclick="deleteDriver('${id}', '${data.firstname} ${data.lastname}')">Smazat řidiče</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        } catch (error) {
+            container.innerHTML = '<p style="color:red; font-size:13px;">Chyba při stahování řidičů.</p>';
+        }
+    }
+
+    async function editDriverPassword(docId, driverName) {
+        const newPass = prompt(`Zadejte nové heslo pro řidiče ${driverName}:`);
+        if (newPass === null || newPass.trim() === "") return; // Uživatel klikl na zrušit nebo nic nezadal
+
+        try {
+            await db.collection("system_drivers").doc(docId).update({
+                password: newPass.trim()
+            });
+            alert("Heslo bylo úspěšně změněno.");
+            loadDriversList(); // Přenačte seznam pro zobrazení nového hesla
+        } catch (error) {
+            alert("Chyba při změně hesla: " + error.message);
+        }
+    }
+
+    async function deleteDriver(docId, driverName) {
+        if (!confirm(`POZOR!\nOpravdu chcete TRVALE smazat řidiče ${driverName}?\n\nTuto akci již nelze vrátit zpět.`)) return;
+
+        try {
+            await db.collection("system_drivers").doc(docId).delete();
+            alert("Řidič byl úspěšně smazán ze systému.");
+            loadDriversList(); // Přenačte seznam bez smazaného
+        } catch (error) {
+            alert("Chyba při mazání z databáze: " + error.message);
+        }
+    }
 
     // --- MODUL OBJEDNÁVKY ---
     let pendingOrders = [];
