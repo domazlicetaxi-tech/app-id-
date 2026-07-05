@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Taxi Green - Dispečink a Taxametr</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        :root {
+            --green-primary: #15803d;
+            --green-light: #22c55e;
+            --green-dark: #14532d;
+            --green-bg: #f0fdf4;
+            --text-dark: #1e293b;
+            --text-muted: #64748b;
+            --danger-red: #ef4444;
+            --warning-amber: #f59e0b;
+            --driver-blue: #2563eb;
+            --taxi-led-green: #00ff00;
+        }
+
+        html, body { margin: 0; padding: 0; height: 100%; width: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; }
+        
+        #app-container { display: flex; height: 100dvh; width: 100vw; flex-direction: row; overflow: hidden; }
+        #panel { width: 420px; height: 100%; background: white; box-shadow: 4px 0 15px rgba(0,0,0,0.1); z-index: 1000; display: flex; flex-direction: column; flex-shrink: 0; }
+        
+        .header { background: #0f172a; padding: 15px 20px; color: white; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; border-bottom: 4px solid var(--green-light); }
+        .header h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--green-light); cursor: pointer; user-select: none; }
+        
+        .btn-top-orders { background: #334155; color: white; border: 2px solid #475569; padding: 8px 12px; border-radius: 6px; font-weight: 800; cursor: pointer; text-transform: uppercase; font-size: 12px; transition: all 0.3s; }
+        .btn-top-orders.alert { animation: alert-blink 0.5s infinite; border-color: transparent; }
+        @keyframes alert-blink { 0% { background-color: var(--danger-red); color: white; } 50% { background-color: var(--green-light); color: white; } 100% { background-color: var(--danger-red); color: white; } }
+        
+        .panel-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px; background: #ffffff; display: none; }
+        .panel-content.active { display: block; }
+
+        .login-group { margin-bottom: 15px; text-align: left; }
+        .login-group label { margin-bottom: 5px; }
+
+        .driver-badge { font-size: 14px; font-weight: bold; background: #f1f5f9; color: var(--text-dark); padding: 8px 12px; border-radius: 8px; text-align: center; margin-bottom: 10px; border: 1px solid #cbd5e1; }
+        .top-buttons { display: flex; gap: 10px; margin-bottom: 15px; }
+        .btn-taximeter { flex: 2; background: var(--warning-amber); color: #000; border: 2px solid #b45309; border-radius: 8px; font-weight: 900; font-size: 14px; padding: 12px 10px; cursor: pointer; text-transform: uppercase; box-shadow: 0 2px 4px rgba(245,158,11,0.2); }
+        .btn-logout { flex: 1; background: #cbd5e1; color: var(--text-dark); border: none; border-radius: 8px; font-weight: bold; padding: 12px 10px; cursor: pointer; font-size: 13px; text-transform: uppercase; }
+
+        .mode-toggle { display: flex; background: #f1f5f9; padding: 4px; border-radius: 8px; margin-bottom: 15px; gap: 4px; border: 1px solid #e2e8f0; }
+        .btn-mode { flex: 1; background: none; border: none; color: var(--text-muted); padding: 10px 5px; font-weight: 700; font-size: 13px; border-radius: 6px; cursor: pointer; transition: all 0.2s; text-transform: uppercase; }
+        .btn-mode.active { background: var(--green-primary); color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
+
+        label { font-weight: 700; font-size: 13px; color: var(--text-dark); display: block; margin-bottom: 4px; text-transform: uppercase; }
+        .input-row { display: flex; gap: 6px; margin-bottom: 12px; position: relative; }
+        .input-wrapper { flex: 1; position: relative; }
+        input[type="text"], input[type="password"], input[type="number"] { width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-size: 14px; outline: none; }
+        input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:focus { border-color: var(--driver-blue); }
+
+        .btn-map-pick { background: #f1f5f9; border: 2px solid #e2e8f0; border-radius: 8px; padding: 0 12px; cursor: pointer; font-size: 16px; }
+        .btn-map-pick.active { background: var(--danger-red); color: white; border-color: #dc2626; animation: pulse 1.2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #cbd5e1; border-radius: 0 0 8px 8px; max-height: 150px; overflow-y: auto; z-index: 9999; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .autocomplete-item { padding: 10px; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+        .autocomplete-item:hover { background-color: var(--green-bg); color: var(--green-primary); font-weight: 600; }
+        
+        .btn-add { background: none; border: 2px dashed #cbd5e1; color: var(--text-muted); width: 100%; padding: 8px; border-radius: 8px; font-weight: 600; cursor: pointer; margin-bottom: 15px; }
+
+        .action-section { padding-top: 10px; border-top: 2px solid #e2e8f0; margin-top: 5px; }
+        .btn-calc { width: 100%; padding: 14px; background: var(--text-dark); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 16px; text-transform: uppercase; transition: background 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.2); margin-bottom: 10px; }
+        .btn-calc:hover { background: #000; }
+        .btn-dispatch { width: 100%; padding: 14px; background: var(--green-primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 16px; text-transform: uppercase; box-shadow: 0 4px 6px rgba(21,128,61,0.2); }
+        .btn-dispatch:hover { background: var(--green-dark); }
+        .btn-stop-nav { display: none; width: 100%; padding: 14px; background: var(--danger-red); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 16px; text-transform: uppercase; box-shadow: 0 4px 6px rgba(239,68,68,0.2); animation: pulse 2s infinite; }
+
+        #results-box { margin-top: 15px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .res-text { font-size: 12px; color: var(--text-dark); margin: 0; font-weight: 600; }
+        .res-val { font-size: 24px; font-weight: 900; color: var(--text-dark); }
+
+        /* --- STYLY TAXAMETRU --- */
+        .tariff-buttons { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+        .btn-tariff { width: 100%; padding: 16px; border: none; border-radius: 8px; font-size: 16px; font-weight: 900; text-transform: uppercase; cursor: pointer; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+        .tariff-city { background: var(--driver-blue); }
+        .tariff-outside { background: var(--green-primary); }
+        .tariff-tour { background: var(--warning-amber); color: #000; }
+        
+        .taximeter-hardware { background: #111; border: 4px solid #333; border-radius: 12px; padding: 15px; margin-top: 20px; box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 4px 15px rgba(0,0,0,0.3); }
+        .taxi-led-box { background: #001a00; border: 2px solid #004d00; border-radius: 6px; padding: 15px; margin-bottom: 10px; text-align: right; position: relative; }
+        .taxi-led-label { color: #00b300; font-size: 13px; text-transform: uppercase; text-align: left; font-weight: bold; margin-bottom: 5px; }
+        .taxi-led-text { font-family: 'Courier New', Courier, monospace; color: var(--taxi-led-green); font-size: 52px; font-weight: 900; line-height: 1; text-shadow: 0 0 15px var(--taxi-led-green); margin-top: 5px; }
+        .taxi-led-row { display: flex; gap: 8px; justify-content: space-between; margin-bottom: 5px; }
+        .taxi-led-col { flex: 1; background: #001a00; border: 2px solid #004d00; border-radius: 6px; padding: 10px 5px; text-align: center; display: flex; flex-direction: column; justify-content: center; }
+        .taxi-led-label-small { color: #00b300; font-size: 10px; text-transform: uppercase; font-weight: bold; margin-bottom: 6px; line-height: 1.1; height: 22px; }
+        .taxi-led-val-small { font-family: 'Courier New', Courier, monospace; color: var(--taxi-led-green); font-size: 18px; font-weight: 900; text-shadow: 0 0 8px var(--taxi-led-green); }
+        .taxi-led-subval { color: #00cc00; font-size: 12px; font-family: 'Courier New', Courier, monospace; font-weight: bold; margin-top: 4px; }
+        
+        .taxi-active-target { background: #f1f5f9; padding: 12px; border-radius: 8px; border: 2px solid var(--green-primary); margin-bottom: 15px; font-weight: bold; font-size: 15px; text-align: center; color: var(--text-dark); }
+        .taxi-controls { display: flex; gap: 10px; margin-top: 15px; }
+        .btn-stop-taxi { flex: 2; background: var(--danger-red); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: 900; font-size: 15px; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 6px rgba(239,68,68,0.3); }
+        .btn-print { flex: 1; background: #64748b; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: 900; font-size: 15px; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 6px rgba(100,116,139,0.3); }
+
+        /* --- STYLY ADMIN --- */
+        .admin-title { font-size: 18px; font-weight: bold; color: var(--green-dark); margin-bottom: 15px; border-bottom: 2px solid var(--green-light); padding-bottom: 5px; }
+        .driver-item { display: flex; flex-direction: column; padding: 10px; background: #f1f5f9; border-radius: 6px; margin-bottom: 8px; font-size: 13px; border: 1px solid #e2e8f0; }
+        .driver-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .driver-actions { display: flex; gap: 6px; justify-content: flex-end; }
+        .btn-edit { background: var(--warning-amber); color: #000; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-delete { background: var(--danger-red); color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-action { background: var(--driver-blue); color: white; border: none; padding: 10px; border-radius: 6px; width: 100%; cursor: pointer; font-weight: bold; font-size: 14px; text-transform: uppercase; margin-top: 10px; }
+
+        /* --- STYLY OBJEDNÁVEK --- */
+        .order-card { background: #f8fafc; border: 2px solid var(--green-light); border-left: 6px solid var(--green-primary); padding: 12px; border-radius: 8px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; }
+        .order-card:hover { background: #f0fdf4; transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .order-card-title { font-weight: 900; font-size: 15px; color: var(--text-dark); margin-bottom: 6px; display: flex; justify-content: space-between; }
+        .order-card-detail { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
+
+        /* --- ÚČTENKA MODAL --- */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 320px; font-family: 'Courier New', Courier, monospace; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        .modal-content p { margin: 6px 0; font-size: 14px; color: #000; }
+        .modal-btn { background: var(--green-primary); color: white; padding: 12px; border: none; width: 100%; margin-top: 15px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px; text-transform: uppercase; }
+
+        #map { flex: 1; height: 100%; width: 100%; z-index: 1; }
+
+        @media (max-width: 768px) {
+            html, body { height: auto; min-height: 100vh; overflow-y: auto; overflow-x: hidden; }
+            #app-container { flex-direction: column; height: auto; min-height: 100vh; display: block; }
+            #panel { width: 100%; height: auto; order: 1; position: relative; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: block; }
+            #map { width: 100%; height: 50vh; min-height: 350px; order: 2; z-index: 1; display: block; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Vyskakovací okno pro Účtenku -->
+<div id="receipt-modal" class="modal-overlay">
+    <div class="modal-content">
+        <h3 style="text-align: center; margin-top: 0; border-bottom: 2px dashed #000; padding-bottom: 10px;">ÚČTENKA TAXI GREEN</h3>
+        <p><strong>Řidič:</strong> <span id="rec-driver"></span></p>
+        <p><strong>Nástup:</strong> <span id="rec-from"></span></p>
+        <p><strong>Výstup:</strong> <span id="rec-to"></span></p>
+        <hr style="border-top: 1px dashed #000; margin: 15px 0;">
+        <p><strong>Jízdné:</strong> <span id="rec-fare"></span> Kč</p>
+        <p><strong>Čekání:</strong> <span id="rec-wait"></span> Kč</p>
+        <h2 style="text-align: center; margin-top: 15px; border-top: 2px dashed #000; padding-top: 10px;">Celkem: <span id="rec-total"></span> Kč</h2>
+        <button class="modal-btn" onclick="executePrint()">Tisknout</button>
+        <button onclick="document.getElementById('receipt-modal').style.display='none'" style="width:100%; padding: 10px; margin-top: 10px; cursor:pointer; background:#e2e8f0; border:none; border-radius:6px; font-weight:bold;">Zavřít</button>
+    </div>
+</div>
+
+<div id="app-container">
+    <div id="panel">
+        <div class="header">
+            <h1 onclick="handleAdminClick()">Dispečink</h1>
+            <button id="btn-top-orders" class="btn-top-orders" onclick="openOrdersSection()">Objednávky (0)</button>
+        </div>
+        
+        <!-- STAV 1: LOGIN -->
+        <div id="section-login" class="panel-content active">
+            <h2 style="font-size: 16px; margin-top: 0; margin-bottom: 20px; color: var(--text-dark);">Přihlášení řidiče</h2>
+            <div class="login-group">
+                <label>Přihlašovací jméno</label>
+                <input type="text" id="login-user" placeholder="Např. ridic">
+            </div>
+            <div class="login-group">
+                <label>Heslo</label>
+                <input type="password" id="login-pass" placeholder="******">
+            </div>
+            <button class="btn-action" onclick="handleLogin()">Přihlásit se</button>
+            <p id="login-error" style="color: red; font-size: 12px; display: none; margin-top: 10px; font-weight: bold;">Chybné jméno, heslo nebo účet neexistuje.</p>
+        </div>
+
+        <!-- STAV 2: APLIKACE A NAVIGACE -->
+        <div id="section-app" class="panel-content">
+            <div class="driver-badge" id="driver-name-display">Přihlášen: -</div>
+            
+            <div class="top-buttons">
+                <button class="btn-taximeter" onclick="openTaximeter()">Aplikace Taxametr</button>
+                <button class="btn-logout" onclick="logoutDriver()">Odhlášení</button>
+            </div>
+            
+            <div class="mode-toggle">
+                <button id="mode-mimo" class="btn-mode active" onclick="changeMode('mimo')">Mimo město</button>
+                <button id="mode-mesto" class="btn-mode" onclick="changeMode('mesto')">Město</button>
+            </div>
+
+            <label>1. Místo nakládky</label>
+            <div class="input-row">
+                <div class="input-wrapper">
+                    <input type="text" id="pickup" placeholder="Odkud zákazník jede?..." autocomplete="off">
+                    <div id="pickup-list" class="autocomplete-list"></div>
+                </div>
+                <button class="btn-map-pick" onclick="startMapSelection('pickup', 'pickup', null, event)">📍</button>
+            </div>
+
+            <div id="waypoints-container"></div>
+            <button class="btn-add" onclick="addWaypoint()">+ Přidat průjezdný bod</button>
+
+            <label>2. Místo vykládky (Nepovinné)</label>
+            <div class="input-row">
+                <div class="input-wrapper">
+                    <input type="text" id="dropoff" placeholder="Kam zákazník jede?..." autocomplete="off">
+                    <div id="dropoff-list" class="autocomplete-list"></div>
+                </div>
+                <button class="btn-map-pick" onclick="startMapSelection('dropoff', 'dropoff', null, event)">📍</button>
+            </div>
+
+            <div class="action-section">
+                <button class="btn-calc" id="btn-calc" onclick="calculateRoute()">Vypočítat trasu a cenu</button>
+                <button class="btn-dispatch" id="btn-dispatch" onclick="dispatchVehicle()">Přistavit vozidlo</button>
+                
+                <button class="btn-stop-nav" id="btn-stop-nav" onclick="stopNavigation()">🛑 Zastavit navigaci</button>
+                
+                <div id="results-box">
+                    <div>
+                        <p class="res-text">Vzdálenost: <span id="dist-val" style="font-size: 16px;">0</span> km</p>
+                        <p class="res-text" style="margin-top: 3px;">Cena k úhradě:</p>
+                    </div>
+                    <div class="res-val"><span id="price-val">0</span> Kč</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STAV 3: TAXAMETR -->
+        <div id="section-taximeter" class="panel-content">
+            <button class="btn-logout" onclick="closeTaximeter()" style="width:100%; margin-bottom:15px; background:#e2e8f0; color:#333;">⬅ Zpět do dispečinku</button>
+            
+            <div id="taxi-setup">
+                <label style="font-size: 15px; color: var(--green-dark);">Cíl cesty (Místo vykládky):</label>
+                <div class="input-row">
+                    <div class="input-wrapper">
+                        <input type="text" id="taxi-target-input" placeholder="Zadejte cíl nebo nechte prázdné..." autocomplete="off">
+                        <div id="taxi-target-list" class="autocomplete-list"></div>
+                    </div>
+                    <button class="btn-map-pick" onclick="startMapSelection('taxitarget', 'taxi-target-input', null, event)">📍</button>
+                </div>
+                <p style="font-size: 11px; color: var(--text-muted); margin-top: -5px; margin-bottom: 20px;">* Pokud necháte prázdné, taxametr nepojede podle navigace a bude počítat pouze čas a vzdálenost.</p>
+                
+                <label style="font-size: 15px; color: var(--green-dark);">Vyberte sazbu pro zahájení jízdy:</label>
+                <div class="tariff-buttons">
+                    <button class="btn-tariff tariff-city" onclick="startFare('město', 34)">1. Město (34 Kč/km)</button>
+                    <button class="btn-tariff tariff-outside" onclick="startFare('mimo město', 26)">2. Mimo město (26 Kč/km)</button>
+                    <button class="btn-tariff tariff-tour" onclick="startFare('okružní', 30)">3. Okružní (30 Kč/km)</button>
+                </div>
+            </div>
+
+            <div id="taxi-running" style="display: none;">
+                <div class="taxi-active-target">
+                    Cíl: <span id="taxi-display-target">Nezadáno</span>
+                </div>
+
+                <div class="taximeter-hardware">
+                    <div class="taxi-led-box">
+                        <div class="taxi-led-label">Sazba: <span id="taxi-led-tariff"></span> (<span id="taxi-led-rate-info">0</span> Kč/km)</div>
+                        <div class="taxi-led-text"><span id="taxi-led-price">20.00</span> <span style="font-size:24px;">Kč</span></div>
+                    </div>
+                    
+                    <div class="taxi-led-row">
+                        <div class="taxi-led-col">
+                            <div class="taxi-led-label-small">Ujeto</div>
+                            <div class="taxi-led-val-small"><span id="taxi-led-dist">0.00</span> km</div>
+                        </div>
+                        <div class="taxi-led-col">
+                            <div class="taxi-led-label-small">Čekání<br>(6 Kč/min)</div>
+                            <div class="taxi-led-val-small" id="taxi-led-wait-time">00:00</div>
+                            <div class="taxi-led-subval">+ <span id="taxi-led-wait-cost">0.00</span> Kč</div>
+                        </div>
+                        <div class="taxi-led-col">
+                            <div class="taxi-led-label-small">Nástupní<br>sazba</div>
+                            <div class="taxi-led-val-small">20.00 Kč</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="taxi-controls">
+                    <button class="btn-stop-taxi" onclick="stopFare()">Stop Taxametr</button>
+                    <button class="btn-print" onclick="printReceipt()">Tisk</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- STAV 4: ADMINISTRACE -->
+        <div id="section-admin" class="panel-content">
+            <button class="btn-action" onclick="closeAdmin()" style="margin-bottom:15px; background:#64748b; margin-top: 0;">⬅ Zpět do aplikace</button>
+            <div class="admin-title">Evidence řidičů</div>
+            <div style="margin-bottom: 15px;">
+                <label style="font-size:11px; margin-bottom:2px;">Jméno a příjmení</label>
+                <input type="text" id="new-driver-name" placeholder="Pavel Novák">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="font-size:11px; margin-bottom:2px;">Uživatelské jméno</label>
+                <input type="text" id="new-driver-user" placeholder="pavel.n">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="font-size:11px; margin-bottom:2px;">Heslo</label>
+                <input type="password" id="new-driver-pass" placeholder="••••••">
+            </div>
+            <button class="btn-action" onclick="registerDriver()" style="background:var(--green-primary); margin-top: 0;">➕ Zaevidovat řidiče</button>
+        </div>
+
+        <!-- STAV 5: OBJEDNÁVKY -->
+        <div id="section-orders" class="panel-content">
+            <button class="btn-logout" onclick="showSection('section-app')" style="width:100%; margin-bottom:15px; background:#e2e8f0; color:#333;">⬅ Zpět na dispečink</button>
+            <h2 style="font-size: 18px; color: var(--green-dark); margin-top:0;">Přijaté objednávky</h2>
+            
+            <div id="orders-list-container">
+                <p id="no-orders-msg" style="font-size: 13px; color: #666;">Zatím žádné nové objednávky...</p>
+            </div>
+        </div>
+
+        <!-- STAV 6: DETAIL OBJEDNÁVKY -->
+        <div id="section-order-detail" class="panel-content">
+            <button class="btn-logout" onclick="openOrdersSection()" style="width:100%; margin-bottom:15px; background:#e2e8f0; color:#333;">⬅ Zpět na seznam</button>
+            <h2 style="font-size: 18px; color: var(--green-dark); margin-top:0;">Potvrzení objednávky</h2>
+            
+            <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #e2e8f0;">
+                <p style="margin-top:0; margin-bottom: 10px; font-size: 14px;"><strong>Zákazník čeká na:</strong><br><span id="detail-pickup" style="color: var(--driver-blue);"></span></p>
+                <p style="margin-top:0; margin-bottom: 10px; font-size: 14px;"><strong>Cíl cesty:</strong><br><span id="detail-dropoff" style="color: var(--green-primary);"></span></p>
+                <p style="margin-top:0; margin-bottom: 0; font-size: 13px; color: var(--text-muted);"><strong>Čas přijetí:</strong> <span id="detail-time"></span></p>
+            </div>
+
+            <label style="color: var(--danger-red);">Potřebuji čas navíc (Zpoždění v minutách):</label>
+            <input type="number" id="detail-extra-time" value="0" min="0" style="margin-bottom: 5px;">
+            <p style="font-size: 11px; color: var(--text-muted); margin-top: 0; margin-bottom: 20px; line-height: 1.3;">Zákazníkovi se k odhadu GPS příjezdu připočítá tento čas (např. pokud ještě vezete jiného zákazníka).</p>
+
+            <button class="btn-dispatch" onclick="confirmOrder()" style="margin-bottom: 10px;">Potvrdit a přistavit k zákazníkovi</button>
+        </div>
+
+    </div>
+    
+    <div id="map"></div>
+</div>
+
+<script>
+    const greenCarIcon = L.divIcon({
+        html: '<div style="background-color: white; border-radius: 50%; padding: 2px; box-shadow: 0 2px 5px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#00FF00" width="30px" height="30px"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg></div>',
+        className: 'driver-gps-marker', iconSize: [38, 38], iconAnchor: [19, 19]
+    });
+
+    const firebaseConfig = { apiKey: "AIzaSyBU-wAdjtrC3wwkTulv432KfVVghnujYfg", authDomain: "kalkula-641ff.firebaseapp.com", projectId: "kalkula-641ff", storageBucket: "kalkula-641ff.firebasestorage.app", messagingSenderId: "126206326606", appId: "1:126206326606:web:2f391fa66e7f5bc54b901f" };
+    let db = null; try { firebase.initializeApp(firebaseConfig); db = firebase.firestore(); } catch (error) { console.error("Chyba Firebase:", error); }
+
+    let clickCount = 0; let clickTimer = null;
+    window.addEventListener('DOMContentLoaded', () => { checkLoginStatus(); });
+
+    function handleAdminClick() {
+        clickCount++; clearTimeout(clickTimer); clickTimer = setTimeout(() => { clickCount = 0; }, 400);
+        if (clickCount >= 5) { clickCount = 0; if (prompt("Zadejte heslo:") === "26 3654") { showSection('section-admin'); } else { alert("Neplatné heslo."); } }
+    }
+
+    function showSection(sectionId) {
+        document.querySelectorAll('.panel-content').forEach(el => el.classList.remove('active'));
+        document.getElementById(sectionId).classList.add('active');
+    }
+
+    function checkLoginStatus() {
+        if (localStorage.getItem('taxi_green_driver_logged') === 'true') {
+            document.getElementById('driver-name-display').innerText = `Přihlášen: ${localStorage.getItem('taxi_green_driver_name')}`;
+            initFirebaseOrders();
+            showSection('section-app');
+        } else { showSection('section-login'); }
+    }
+
+    async function handleLogin() {
+        const u = document.getElementById('login-user').value.trim().toLowerCase();
+        const p = document.getElementById('login-pass').value.trim();
+        if (!u || !p) return alert("Vyplňte jméno a heslo.");
+        if (!db) return alert("Chyba Firebase databáze.");
+        try {
+            const snapshot = await db.collection("system_drivers").get(); let found = false;
+            snapshot.forEach(doc => {
+                if (doc.data().username === u && doc.data().password === p) {
+                    found = true; localStorage.setItem('taxi_green_driver_logged', 'true'); localStorage.setItem('taxi_green_driver_name', doc.data().fullname.toUpperCase());
+                    document.getElementById('login-error').style.display = 'none'; document.getElementById('login-pass').value = ''; checkLoginStatus();
+                }
+            });
+            if (!found) document.getElementById('login-error').style.display = 'block';
+        } catch (err) { alert("Chyba DB:\n" + err.message); }
+    }
+    function logoutDriver() { localStorage.removeItem('taxi_green_driver_logged'); localStorage.removeItem('taxi_green_driver_name'); checkLoginStatus(); }
+    function closeAdmin() { checkLoginStatus(); }
+
+    // --- MODUL OBJEDNÁVKY ---
+    let pendingOrders = [];
+    let currentEditingOrder = null;
+    let activeOrderId = null; // ID běžící jízdy
+    
+    function initFirebaseOrders() {
+        if (!db) return;
+        db.collection("taxi_orders").where("status", "==", "Nová").onSnapshot(snapshot => {
+            pendingOrders = [];
+            snapshot.forEach(doc => { pendingOrders.push({ id: doc.id, ...doc.data() }); });
+            document.getElementById('btn-top-orders').innerText = `Objednávky (${pendingOrders.length})`;
+            
+            if (document.getElementById('section-orders').classList.contains('active')) {
+                renderOrders();
+            } else if (pendingOrders.length > 0) {
+                document.getElementById('btn-top-orders').classList.add('alert');
+            }
+        });
+    }
+
+    function openOrdersSection() {
+        document.getElementById('btn-top-orders').classList.remove('alert');
+        showSection('section-orders');
+        renderOrders();
+    }
+
+    function openOrderDetail(orderId) {
+        currentEditingOrder = pendingOrders.find(o => o.id === orderId);
+        if(!currentEditingOrder) return;
+        
+        document.getElementById('detail-pickup').innerText = currentEditingOrder.pickup;
+        document.getElementById('detail-dropoff').innerText = currentEditingOrder.dropoff;
+        document.getElementById('detail-time').innerText = currentEditingOrder.time;
+        document.getElementById('detail-extra-time').value = 0;
+        
+        showSection('section-order-detail');
+    }
+
+    function confirmOrder() {
+        if(!currentEditingOrder) return;
+        let extraTime = parseInt(document.getElementById('detail-extra-time').value) || 0;
+        
+        activeOrderId = currentEditingOrder.id; // Uloží ID pro sledování polohy
+
+        db.collection("taxi_orders").doc(activeOrderId).update({
+            status: "Potvrzeno",
+            extraTime: extraTime,
+            driverName: localStorage.getItem('taxi_green_driver_name')
+        });
+
+        document.getElementById('pickup').value = currentEditingOrder.pickup;
+        document.getElementById('dropoff').value = currentEditingOrder.dropoff;
+        
+        alert(`Objednávka potvrzena!\n\nZákazníkovi se v aplikaci nyní zobrazuje vaše poloha (autíčko).`);
+        showSection('section-app');
+
+        coordsData.pickup = null; coordsData.dropoff = null;
+
+        // Najde na mapě nakládku a odstartuje dispečink
+        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(currentEditingOrder.pickup)}&countrycodes=cz`)
+        .then(res => res.json())
+        .then(data => {
+            if(data && data.length > 0) {
+                coordsData.pickup = L.latLng(data[0].lat, data[0].lon);
+                dispatchVehicle(); 
+            }
+        });
+
+        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(currentEditingOrder.dropoff)}&countrycodes=cz`)
+        .then(res => res.json())
+        .then(data => {
+            if(data && data.length > 0) coordsData.dropoff = L.latLng(data[0].lat, data[0].lon);
+        });
+    }
+
+    function renderOrders() {
+        const container = document.getElementById('orders-list-container');
+        const noMsg = document.getElementById('no-orders-msg');
+        
+        container.querySelectorAll('.order-card').forEach(el => el.remove());
+        
+        if (pendingOrders.length === 0) {
+            noMsg.style.display = 'block'; return;
+        }
+        noMsg.style.display = 'none';
+        
+        pendingOrders.forEach(ord => {
+            let div = document.createElement('div');
+            div.className = 'order-card';
+            div.innerHTML = `
+                <div class="order-card-title"><span>Objednávka od zákazníka</span> <span style="color:#2563eb;">${ord.time}</span></div>
+                <div class="order-card-detail"><b>Nástup:</b> ${ord.pickup}</div>
+                <div class="order-card-detail"><b>Výstup:</b> ${ord.dropoff}</div>
+            `;
+            div.onclick = () => { openOrderDetail(ord.id); };
+            container.appendChild(div);
+        });
+    }
+
+    // --- MODUL TAXAMETR ---
+    let taxiWatchId = null; let taxiWaitInterval = null; let taxiLastPosition = null; let taxiLastMoveTime = null;
+    let taxiBaseFare = 20; let taxiCurrentRate = 0; let taxiDistanceKm = 0; let taxiWaitSeconds = 0; let taxiWaitCost = 0;
+
+    document.getElementById('taxi-target-input').addEventListener('input', function() {
+        const val = this.value.trim(); document.getElementById('taxi-display-target').innerText = val || "Nezadáno";
+        if (val === '') { coordsData.dropoff = null; if (routingControl) { map.removeControl(routingControl); routingControl = null; } }
+    });
+
+    function formatTime(totalSeconds) { const m = Math.floor(totalSeconds / 60); const s = totalSeconds % 60; return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0'); }
+    function updateTotalPriceDisplay() {
+        const total = taxiBaseFare + (taxiDistanceKm * taxiCurrentRate) + taxiWaitCost;
+        document.getElementById('taxi-led-price').innerText = total.toFixed(2);
+    }
+
+    function openTaximeter() {
+        const dropoffValue = document.getElementById('dropoff').value;
+        document.getElementById('taxi-target-input').value = dropoffValue;
+        document.getElementById('taxi-setup').style.display = 'block';
+        document.getElementById('taxi-running').style.display = 'none';
+        showSection('section-taximeter');
+    }
+
+    function closeTaximeter() {
+        if (taxiWatchId || taxiWaitInterval) { alert("Nejprve zastavte běžící taxametr!"); return; }
+        showSection('section-app');
+    }
+
+    async function startFare(tariffName, ratePerKm) {
+        if (!navigator.geolocation) { alert("Váš prohlížeč nepodporuje GPS polohu."); return; }
+
+        const targetName = document.getElementById('taxi-target-input').value || "Nezadáno";
+        document.getElementById('taxi-display-target').innerText = targetName;
+        
+        taxiBaseFare = 20.00; taxiCurrentRate = ratePerKm; taxiDistanceKm = 0; taxiWaitSeconds = 0; taxiWaitCost = 0; taxiLastPosition = null; taxiLastMoveTime = Date.now();
+        document.getElementById('taxi-led-tariff').innerText = tariffName.toUpperCase(); document.getElementById('taxi-led-rate-info').innerText = ratePerKm;
+        document.getElementById('taxi-led-dist').innerText = "0.00"; document.getElementById('taxi-led-wait-time').innerText = "00:00"; document.getElementById('taxi-led-wait-cost').innerText = "0.00";
+        updateTotalPriceDisplay();
+
+        document.getElementById('taxi-setup').style.display = 'none'; document.getElementById('taxi-running').style.display = 'block';
+
+        taxiWaitInterval = setInterval(() => {
+            if (taxiLastMoveTime) {
+                const idleTime = Date.now() - taxiLastMoveTime;
+                if (idleTime > 60000) { 
+                    taxiWaitSeconds++; taxiWaitCost = taxiWaitSeconds * 0.10;
+                    document.getElementById('taxi-led-wait-time').innerText = formatTime(taxiWaitSeconds);
+                    document.getElementById('taxi-led-wait-cost').innerText = taxiWaitCost.toFixed(2);
+                    updateTotalPriceDisplay(); 
+                }
+            }
+        }, 1000);
+
+        let finalTargetCoords = coordsData.dropoff;
+        if (targetName !== "Nezadáno" && !finalTargetCoords && targetName.trim() !== "") {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(targetName)}&countrycodes=cz`);
+                const data = await res.json();
+                if (data && data.length > 0) finalTargetCoords = L.latLng(data[0].lat, data[0].lon);
+            } catch(e) { console.warn("Nepodařilo se najít cíl."); }
+        }
+
+        if (finalTargetCoords && targetName.trim() !== "") {
+            navigator.geolocation.getCurrentPosition(pos => {
+                let startLatLng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+                if (routingControl) map.removeControl(routingControl);
+                routingControl = L.Routing.control({
+                    waypoints: [ L.Routing.waypoint(startLatLng, undefined, {allowUTurn: true}), L.Routing.waypoint(finalTargetCoords, undefined, {allowUTurn: true}) ],
+                    router: L.Routing.osrmv1({ serviceUrl: 'https://routing.openstreetmap.de/routed-car/route/v1', useHints: false }),
+                    lineOptions: { styles: [ { color: '#00FF00', opacity: 1, weight: 8 } ] },
+                    show: false, addWaypoints: false
+                }).addTo(map);
+            }, () => {}, { enableHighAccuracy: true });
+        } else {
+            if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+        }
+
+        taxiWatchId = navigator.geolocation.watchPosition(
+            updateTaximeterGPS, (err) => { console.warn("Chyba GPS taxametru: " + err.message); },
+            { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 }
+        );
+    }
+
+    function updateTaximeterGPS(position) {
+        const accuracy = position.coords.accuracy; const currentPos = L.latLng(position.coords.latitude, position.coords.longitude);
+        if (accuracy > 30) return;
+        if (taxiLastPosition) {
+            const movedMeters = taxiLastPosition.distanceTo(currentPos);
+            if (movedMeters > 4) {
+                taxiDistanceKm += (movedMeters / 1000); taxiLastMoveTime = Date.now(); 
+                document.getElementById('taxi-led-dist').innerText = taxiDistanceKm.toFixed(2);
+                updateTotalPriceDisplay();
+            }
+        } else { taxiLastMoveTime = Date.now(); }
+        taxiLastPosition = currentPos;
+
+        if (realtimeDriverMarker) { realtimeDriverMarker.setLatLng(currentPos); } else { realtimeDriverMarker = L.marker(currentPos, { icon: greenCarIcon, zIndexOffset: 1000 }).addTo(map); }
+        map.panTo(currentPos);
+
+        // Odesílá polohu zákazníkovi
+        if (activeOrderId && db) {
+            db.collection("taxi_orders").doc(activeOrderId).update({
+                driverLat: currentPos.lat, driverLng: currentPos.lng
+            });
+        }
+    }
+
+    function stopFare() {
+        if (taxiWatchId) { navigator.geolocation.clearWatch(taxiWatchId); taxiWatchId = null; }
+        if (taxiWaitInterval) { clearInterval(taxiWaitInterval); taxiWaitInterval = null; }
+        if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+        if (realtimeDriverMarker) { map.removeLayer(realtimeDriverMarker); realtimeDriverMarker = null; }
+        
+        // Ukončení objednávky pro zákazníka (zmizí mu z mapy auto)
+        if (activeOrderId && db) {
+            db.collection("taxi_orders").doc(activeOrderId).update({ status: "Dokončeno" });
+            activeOrderId = null;
+        }
+        
+        // Zde zmizel alert. Displej nyní zůstává svítit pro čtení hodnot.
+    }
+    
+    function printReceipt() {
+        const dName = localStorage.getItem('taxi_green_driver_name') || "Neznámý";
+        const fromPlace = document.getElementById('pickup').value || "Místo nakládky (GPS)";
+        const toPlace = document.getElementById('taxi-display-target').innerText;
+        
+        let total = parseFloat(document.getElementById('taxi-led-price').innerText);
+        let waitCost = parseFloat(document.getElementById('taxi-led-wait-cost').innerText);
+        let fare = (total - waitCost).toFixed(2);
+
+        document.getElementById('rec-driver').innerText = dName;
+        document.getElementById('rec-from').innerText = fromPlace;
+        document.getElementById('rec-to').innerText = toPlace;
+        document.getElementById('rec-fare').innerText = fare;
+        document.getElementById('rec-wait').innerText = waitCost.toFixed(2);
+        document.getElementById('rec-total').innerText = total.toFixed(2);
+
+        document.getElementById('receipt-modal').style.display = 'flex';
+    }
+
+    function executePrint() {
+        window.print();
+        document.getElementById('receipt-modal').style.display = 'none';
+    }
+
+    // --- MAPA A DISPEČINK ---
+    const BASE_ADDRESS = "Msgre. B. Staška 76, Domažlice"; let baseCoords = L.latLng(49.440478, 12.932068); let currentMode = 'mimo'; 
+    const map = L.map('map', { zoomControl: false }).setView([49.4405, 12.9321], 14); L.control.zoom({ position: 'topright' }).addTo(map); 
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    let coordsData = { pickup: null, dropoff: null, waypoints: [] }; let tempMarkers = L.layerGroup().addTo(map); let routingControl = null; let activeSelection = null; let realtimeDriverMarker = null;
+
+    function changeMode(mode) { currentMode = mode; document.querySelectorAll('.btn-mode').forEach(b => b.classList.remove('active')); document.getElementById(`mode-${mode}`).classList.add('active'); }
+    function startMapSelection(type, inputId, wpIndex, e) {
+        if (e) e.stopPropagation(); const isAct = e.currentTarget.classList.contains('active'); document.querySelectorAll('.btn-map-pick').forEach(b => b.classList.remove('active')); activeSelection = null;
+        if (!isAct) { activeSelection = { type: type, inputId: inputId, wpIndex: wpIndex }; e.currentTarget.classList.add('active'); document.getElementById('map').style.cursor = 'crosshair'; }
+    }
+    map.on('click', function(e) {
+        if (!activeSelection) return; const latlng = e.latlng; const target = activeSelection; document.querySelectorAll('.btn-map-pick').forEach(b => b.classList.remove('active')); document.getElementById('map').style.cursor = 'default'; activeSelection = null;
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}`).then(res => res.json()).then(data => {
+            let addr = data && data.display_name ? data.display_name.split(',').slice(0, 2).join(',') : "Místo z mapy"; document.getElementById(target.inputId).value = addr;
+            if (target.type === 'pickup') coordsData.pickup = latlng; 
+            else if (target.type === 'dropoff' || target.type === 'taxitarget') coordsData.dropoff = latlng; 
+            else if (target.type === 'waypoint') coordsData.waypoints[target.wpIndex] = latlng;
+            tempMarkers.clearLayers(); L.marker(latlng).addTo(tempMarkers).bindPopup(addr).openPopup();
+        });
+    });
+
+    function setupAutocomplete(inputId, listId, type, wpIndex = null) {
+        const input = document.getElementById(inputId); const list = document.getElementById(listId); let timeout;
+        input.addEventListener('input', function() {
+            clearTimeout(timeout); list.innerHTML = ''; if (!this.value) return;
+            timeout = setTimeout(() => {
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${this.value}&countrycodes=cz`).then(res => res.json()).then(data => {
+                    list.innerHTML = ''; data.slice(0, 5).forEach(item => { 
+                        let div = document.createElement('div'); div.className = 'autocomplete-item'; div.innerText = item.display_name;
+                        div.onclick = () => {
+                            let sn = item.display_name.split(',').slice(0, 2).join(','); input.value = sn; list.innerHTML = ''; let latlng = L.latLng(item.lat, item.lon);
+                            if (type === 'pickup') coordsData.pickup = latlng; 
+                            else if (type === 'dropoff' || type === 'taxitarget') coordsData.dropoff = latlng; 
+                            else if (type === 'waypoint') coordsData.waypoints[wpIndex] = latlng;
+                            tempMarkers.clearLayers(); L.marker(latlng).addTo(tempMarkers).bindPopup(sn).openPopup(); map.flyTo(latlng, 14); 
+                        }; list.appendChild(div);
+                    });
+                });
+            }, 400);
+        });
+    }
+    setupAutocomplete('pickup', 'pickup-list', 'pickup'); 
+    setupAutocomplete('dropoff', 'dropoff-list', 'dropoff');
+    setupAutocomplete('taxi-target-input', 'taxi-target-list', 'taxitarget');
+
+    function calculateRoute() {
+        if (!coordsData.pickup) return alert("Zadejte prosím alespoň místo nakládky."); tempMarkers.clearLayers(); let rawPoints = [];
+        if (currentMode === 'mimo') { rawPoints.push(baseCoords, coordsData.pickup); coordsData.waypoints.forEach(wp => { if (wp) rawPoints.push(wp); }); if (coordsData.dropoff) { rawPoints.push(coordsData.dropoff, baseCoords); } else { rawPoints.push(baseCoords); } } 
+        else { rawPoints.push(coordsData.pickup); coordsData.waypoints.forEach(wp => { if (wp) rawPoints.push(wp); }); if (coordsData.dropoff) { rawPoints.push(coordsData.dropoff); } }
+        
+        let finalWaypoints = rawPoints.map(p => L.Routing.waypoint(p, undefined, { allowUTurn: true }));
+        
+        if (routingControl) map.removeControl(routingControl);
+        routingControl = L.Routing.control({
+            waypoints: finalWaypoints, router: L.Routing.osrmv1({ serviceUrl: 'https://routing.openstreetmap.de/routed-car/route/v1', useHints: false }),
+            lineOptions: { styles: [ { color: '#004d00', opacity: 0.8, weight: 8 }, { color: '#00FF00', opacity: 1, weight: 5 } ] }, show: false, addWaypoints: false, fitSelectedRoutes: true
+        }).addTo(map);
+        routingControl.on('routesfound', function(e) {
+            let dist = (e.routes[0].summary.totalDistance / 1000).toFixed(1); let price = currentMode === 'mimo' ? Math.round((dist * 13) + 20) : Math.round((dist * 34) + 20);
+            document.getElementById('dist-val').innerText = dist; document.getElementById('price-val').innerText = price.toLocaleString('cs-CZ');
+            if (window.innerWidth <= 768) { setTimeout(() => { document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 300); }
+        });
+    }
+
+    function dispatchVehicle() {
+        if (!coordsData.pickup) return alert("Zadejte Místo nakládky."); if (!navigator.geolocation) return alert("GPS není podporována.");
+        if (routingControl) map.removeControl(routingControl); tempMarkers.clearLayers();
+        document.getElementById('btn-calc').style.display = 'none'; document.getElementById('btn-dispatch').style.display = 'none'; document.getElementById('btn-stop-nav').style.display = 'block';
+        L.marker(coordsData.pickup).addTo(tempMarkers).bindPopup("Jedu sem!").openPopup();
+        
+        map.locate({ setView: true, maxZoom: 18, watch: true, enableHighAccuracy: true });
+        map.on('locationfound', function(e) {
+            if (realtimeDriverMarker) { 
+                realtimeDriverMarker.setLatLng(e.latlng); 
+            } else {
+                realtimeDriverMarker = L.marker(e.latlng, { icon: greenCarIcon, zIndexOffset: 1000 }).addTo(map);
+                routingControl = L.Routing.control({ 
+                    waypoints: [ L.Routing.waypoint(e.latlng, undefined, {allowUTurn: true}), L.Routing.waypoint(coordsData.pickup, undefined, {allowUTurn: true}) ], 
+                    router: L.Routing.osrmv1({ serviceUrl: 'https://routing.openstreetmap.de/routed-car/route/v1', useHints: false }), 
+                    lineOptions: { styles: [ { color: '#00FF00', opacity: 1, weight: 8 } ] }, 
+                    show: false, addWaypoints: false 
+                }).addTo(map);
+            } 
+            map.panTo(e.latlng);
+
+            if (activeOrderId && db) {
+                db.collection("taxi_orders").doc(activeOrderId).update({
+                    driverLat: e.latlng.lat, driverLng: e.latlng.lng
+                });
+            }
+        });
+    }
+
+    function stopNavigation() {
+        map.stopLocate(); if (realtimeDriverMarker) { map.removeLayer(realtimeDriverMarker); realtimeDriverMarker = null; }
+        if (routingControl) map.removeControl(routingControl); map.off('locationfound'); map.off('locationerror');
+        document.getElementById('btn-stop-nav').style.display = 'none'; document.getElementById('btn-calc').style.display = 'block'; document.getElementById('btn-dispatch').style.display = 'block'; map.setZoom(15);
+    }
+</script>
+</body>
+</html>
