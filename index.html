@@ -363,7 +363,7 @@
             clickCount = 0; 
             if (prompt("Zadejte administrátorské heslo:") === "26 3654") { 
                 showSection('section-admin'); 
-                loadDriversList(); // Načte seznam řidičů rovnou po vstupu
+                loadDriversList(); 
             } else { 
                 alert("Neplatné heslo."); 
             } 
@@ -394,7 +394,6 @@
                 if (doc.data().username === u && doc.data().password === p) {
                     found = true; 
                     localStorage.setItem('taxi_green_driver_logged', 'true'); 
-                    // Pro zobrazení v aplikaci použijeme celé jméno, které si spojíme z Jména a Příjmení z DB
                     const fullName = (doc.data().firstname + " " + doc.data().lastname).toUpperCase();
                     localStorage.setItem('taxi_green_driver_name', fullName);
                     
@@ -408,7 +407,7 @@
     function closeAdmin() { checkLoginStatus(); }
 
     // --- MODUL ADMINISTRACE ---
-    let adminDriversListener = null; // Proměnná pro udržení spojení se živým seznamem
+    let adminDriversListener = null; 
 
     function loadDriversList() {
         const container = document.getElementById('admin-drivers-list');
@@ -416,12 +415,10 @@
         
         if (!db) return;
 
-        // Pokud už nějaké živé sledování běží, ukončíme ho (aby se neduplikovalo)
         if (adminDriversListener) {
             adminDriversListener();
         }
 
-        // Sledujeme kolekci živě (onSnapshot)
         adminDriversListener = db.collection("system_drivers").onSnapshot(snapshot => {
             container.innerHTML = '';
             
@@ -450,7 +447,6 @@
                 container.appendChild(div);
             });
         }, (error) => {
-            // Pokud selžou oprávnění Firebase, ukáže se to administrátorovi
             container.innerHTML = `<p style="color:red; font-size:13px; font-weight:bold;">Chyba: Databáze odmítla přístup. Zkontrolujte oprávnění (Rules) ve Firebase konzoli.</p>`;
             console.error("Chyba čtení Firebase:", error);
         });
@@ -469,13 +465,11 @@
         }
 
         try {
-            // Kontrola, zda uživatel už náhodou neexistuje
             const check = await db.collection("system_drivers").where("username", "==", user).get();
             if (!check.empty) {
                 return alert("Toto uživatelské jméno už někdo má. Zvolte prosím jiné (např. pridejte cislo).");
             }
 
-            // Uložení nového řidiče
             await db.collection("system_drivers").add({
                 firstname: fname,
                 lastname: lname,
@@ -485,13 +479,12 @@
 
             alert(`Řidič ${fname} ${lname} byl úspěšně zaevidován.`);
             
-            // Vymazání formuláře po úspěšném odeslání
             document.getElementById('new-driver-firstname').value = '';
             document.getElementById('new-driver-lastname').value = '';
             document.getElementById('new-driver-user').value = '';
             document.getElementById('new-driver-pass').value = '';
             
-            loadDriversList(); // Automaticky aktualizuje vypsaný seznam
+            loadDriversList(); 
         } catch (error) {
             alert("Chyba při ukládání do databáze: " + error.message);
         }
@@ -499,14 +492,14 @@
 
     async function editDriverPassword(docId, driverName) {
         const newPass = prompt(`Zadejte nové heslo pro řidiče ${driverName}:`);
-        if (newPass === null || newPass.trim() === "") return; // Uživatel klikl na zrušit nebo nic nezadal
+        if (newPass === null || newPass.trim() === "") return; 
 
         try {
             await db.collection("system_drivers").doc(docId).update({
                 password: newPass.trim()
             });
             alert("Heslo bylo úspěšně změněno.");
-            loadDriversList(); // Přenačte seznam pro zobrazení nového hesla
+            loadDriversList(); 
         } catch (error) {
             alert("Chyba při změně hesla: " + error.message);
         }
@@ -518,7 +511,7 @@
         try {
             await db.collection("system_drivers").doc(docId).delete();
             alert("Řidič byl úspěšně smazán ze systému.");
-            loadDriversList(); // Přenačte seznam bez smazaného
+            loadDriversList(); 
         } catch (error) {
             alert("Chyba při mazání z databáze: " + error.message);
         }
@@ -527,7 +520,7 @@
     // --- MODUL OBJEDNÁVKY ---
     let pendingOrders = [];
     let currentEditingOrder = null;
-    let activeOrderId = null; // ID běžící jízdy
+    let activeOrderId = null; 
     
     function initFirebaseOrders() {
         if (!db) return;
@@ -582,21 +575,32 @@
 
         coordsData.pickup = null; coordsData.dropoff = null;
 
-        // Najde na mapě nakládku a odstartuje dispečink
-        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(currentEditingOrder.pickup)}&countrycodes=cz`)
-        .then(res => res.json())
-        .then(data => {
-            if(data && data.length > 0) {
-                coordsData.pickup = L.latLng(data[0].lat, data[0].lon);
-                dispatchVehicle(); 
-            }
-        });
+        // OPRAVA 1: Použití přesných GPS souřadnic z databáze místo textového vyhledávání
+        if (currentEditingOrder.pickupLat && currentEditingOrder.pickupLng) {
+            coordsData.pickup = L.latLng(currentEditingOrder.pickupLat, currentEditingOrder.pickupLng);
+            dispatchVehicle(); 
+        } else {
+            // Fallback pro staré objednávky bez přesných GPS
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(currentEditingOrder.pickup)}&countrycodes=cz`)
+            .then(res => res.json())
+            .then(data => {
+                if(data && data.length > 0) {
+                    coordsData.pickup = L.latLng(data[0].lat, data[0].lon);
+                    dispatchVehicle(); 
+                }
+            });
+        }
 
-        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(currentEditingOrder.dropoff)}&countrycodes=cz`)
-        .then(res => res.json())
-        .then(data => {
-            if(data && data.length > 0) coordsData.dropoff = L.latLng(data[0].lat, data[0].lon);
-        });
+        // OPRAVA 2: To samé pro místo vykládky (cíl cesty)
+        if (currentEditingOrder.dropoffLat && currentEditingOrder.dropoffLng) {
+            coordsData.dropoff = L.latLng(currentEditingOrder.dropoffLat, currentEditingOrder.dropoffLng);
+        } else if (currentEditingOrder.dropoff) {
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(currentEditingOrder.dropoff)}&countrycodes=cz`)
+            .then(res => res.json())
+            .then(data => {
+                if(data && data.length > 0) coordsData.dropoff = L.latLng(data[0].lat, data[0].lon);
+            });
+        }
     }
 
     function renderOrders() {
@@ -654,6 +658,13 @@
     async function startFare(tariffName, ratePerKm) {
         if (!navigator.geolocation) { alert("Váš prohlížeč nepodporuje GPS polohu."); return; }
 
+        // Odeslání změny stavu zákazníkovi při spuštění taxametru
+        if (activeOrderId && db) {
+            db.collection("taxi_orders").doc(activeOrderId).update({
+                status: "Probíhá jízda"
+            });
+        }
+
         const targetName = document.getElementById('taxi-target-input').value || "Nezadáno";
         document.getElementById('taxi-display-target').innerText = targetName;
         
@@ -707,27 +718,42 @@
     }
 
     function updateTaximeterGPS(position) {
-        const accuracy = position.coords.accuracy; const currentPos = L.latLng(position.coords.latitude, position.coords.longitude);
-        if (accuracy > 30) return;
+        const accuracy = position.coords.accuracy; 
+        const currentPos = L.latLng(position.coords.latitude, position.coords.longitude);
+        
+        // OPRAVA 3: Odesíláme polohu do Firebase VŽDY, bez ohledu na přesnost. Auto nesmí zmizet!
+        if (activeOrderId && db) {
+            db.collection("taxi_orders").doc(activeOrderId).update({
+                driverLat: currentPos.lat, 
+                driverLng: currentPos.lng,
+                status: "Probíhá jízda" // Změníme stav, aby zákaznická aplikace věděla, že jedeme
+            });
+        }
+
+        // Aktualizace pozice řidiče na mapě dispečinku
+        if (realtimeDriverMarker) { 
+            realtimeDriverMarker.setLatLng(currentPos); 
+        } else { 
+            realtimeDriverMarker = L.marker(currentPos, { icon: greenCarIcon, zIndexOffset: 1000 }).addTo(map); 
+        }
+        map.panTo(currentPos);
+
+        // Omezení přesnosti pro samotný taxametr (počítání ujeté vzdálenosti a peněz)
+        // Zvýšeno na 40 metrů, aby taxametr neustále nezamrzal
+        if (accuracy > 40) return; 
+
         if (taxiLastPosition) {
             const movedMeters = taxiLastPosition.distanceTo(currentPos);
             if (movedMeters > 4) {
-                taxiDistanceKm += (movedMeters / 1000); taxiLastMoveTime = Date.now(); 
+                taxiDistanceKm += (movedMeters / 1000); 
+                taxiLastMoveTime = Date.now(); 
                 document.getElementById('taxi-led-dist').innerText = taxiDistanceKm.toFixed(2);
                 updateTotalPriceDisplay();
             }
-        } else { taxiLastMoveTime = Date.now(); }
-        taxiLastPosition = currentPos;
-
-        if (realtimeDriverMarker) { realtimeDriverMarker.setLatLng(currentPos); } else { realtimeDriverMarker = L.marker(currentPos, { icon: greenCarIcon, zIndexOffset: 1000 }).addTo(map); }
-        map.panTo(currentPos);
-
-        // Odesílá polohu zákazníkovi
-        if (activeOrderId && db) {
-            db.collection("taxi_orders").doc(activeOrderId).update({
-                driverLat: currentPos.lat, driverLng: currentPos.lng
-            });
+        } else { 
+            taxiLastMoveTime = Date.now(); 
         }
+        taxiLastPosition = currentPos;
     }
 
     function stopFare() {
@@ -741,8 +767,6 @@
             db.collection("taxi_orders").doc(activeOrderId).update({ status: "Dokončeno" });
             activeOrderId = null;
         }
-        
-        // Zde zmizel alert. Displej nyní zůstává svítit pro čtení hodnot.
     }
     
     function printReceipt() {
