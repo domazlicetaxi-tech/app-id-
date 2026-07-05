@@ -408,6 +408,54 @@
     function closeAdmin() { checkLoginStatus(); }
 
     // --- MODUL ADMINISTRACE ---
+    let adminDriversListener = null; // Proměnná pro udržení spojení se živým seznamem
+
+    function loadDriversList() {
+        const container = document.getElementById('admin-drivers-list');
+        container.innerHTML = '<p style="font-size:13px; color:var(--text-muted);">Načítám řidiče z databáze...</p>';
+        
+        if (!db) return;
+
+        // Pokud už nějaké živé sledování běží, ukončíme ho (aby se neduplikovalo)
+        if (adminDriversListener) {
+            adminDriversListener();
+        }
+
+        // Sledujeme kolekci živě (onSnapshot)
+        adminDriversListener = db.collection("system_drivers").onSnapshot(snapshot => {
+            container.innerHTML = '';
+            
+            if (snapshot.empty) {
+                container.innerHTML = '<p style="font-size:13px; color:var(--text-muted); font-style:italic;">Zatím nejsou zaevidováni žádní řidiči.</p>';
+                return;
+            }
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const id = doc.id;
+                
+                const div = document.createElement('div');
+                div.className = 'driver-item';
+                div.innerHTML = `
+                    <div class="driver-item-header">
+                        <strong>${data.firstname} ${data.lastname}</strong>
+                        <span style="color:var(--text-muted); font-size:12px;">Login: <b>${data.username}</b></span>
+                    </div>
+                    <div style="margin-bottom: 8px; font-size: 12px;">Aktuální heslo: <span style="letter-spacing: 1px; font-family: monospace;">${data.password}</span></div>
+                    <div class="driver-actions">
+                        <button class="btn-edit" onclick="editDriverPassword('${id}', '${data.firstname} ${data.lastname}')">Změnit heslo</button>
+                        <button class="btn-delete" onclick="deleteDriver('${id}', '${data.firstname} ${data.lastname}')">Smazat řidiče</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }, (error) => {
+            // Pokud selžou oprávnění Firebase, ukáže se to administrátorovi
+            container.innerHTML = `<p style="color:red; font-size:13px; font-weight:bold;">Chyba: Databáze odmítla přístup. Zkontrolujte oprávnění (Rules) ve Firebase konzoli.</p>`;
+            console.error("Chyba čtení Firebase:", error);
+        });
+    }
+
     async function registerDriver() {
         if (!db) return alert("Chyba spojení s databází.");
         
@@ -446,45 +494,6 @@
             loadDriversList(); // Automaticky aktualizuje vypsaný seznam
         } catch (error) {
             alert("Chyba při ukládání do databáze: " + error.message);
-        }
-    }
-
-    async function loadDriversList() {
-        const container = document.getElementById('admin-drivers-list');
-        container.innerHTML = '<p style="font-size:13px; color:var(--text-muted);">Načítám řidiče z databáze...</p>';
-        
-        if (!db) return;
-
-        try {
-            const snapshot = await db.collection("system_drivers").get();
-            container.innerHTML = '';
-            
-            if (snapshot.empty) {
-                container.innerHTML = '<p style="font-size:13px; color:var(--text-muted); font-style:italic;">Zatím nejsou zaevidováni žádní řidiči.</p>';
-                return;
-            }
-
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                const id = doc.id;
-                
-                const div = document.createElement('div');
-                div.className = 'driver-item';
-                div.innerHTML = `
-                    <div class="driver-item-header">
-                        <strong>${data.firstname} ${data.lastname}</strong>
-                        <span style="color:var(--text-muted); font-size:12px;">Login: <b>${data.username}</b></span>
-                    </div>
-                    <div style="margin-bottom: 8px; font-size: 12px;">Aktuální heslo: <span style="letter-spacing: 1px; font-family: monospace;">${data.password}</span></div>
-                    <div class="driver-actions">
-                        <button class="btn-edit" onclick="editDriverPassword('${id}', '${data.firstname} ${data.lastname}')">Změnit heslo</button>
-                        <button class="btn-delete" onclick="deleteDriver('${id}', '${data.firstname} ${data.lastname}')">Smazat řidiče</button>
-                    </div>
-                `;
-                container.appendChild(div);
-            });
-        } catch (error) {
-            container.innerHTML = '<p style="color:red; font-size:13px;">Chyba při stahování řidičů.</p>';
         }
     }
 
