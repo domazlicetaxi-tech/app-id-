@@ -356,6 +356,7 @@
     let db = null; try { firebase.initializeApp(firebaseConfig); db = firebase.firestore(); } catch (error) { console.error("Chyba Firebase:", error); }
 
     let clickCount = 0; let clickTimer = null;
+    let locationSharingActive = false;
     window.addEventListener('DOMContentLoaded', () => { checkLoginStatus(); });
 
     function handleAdminClick() {
@@ -706,15 +707,85 @@
 
     function confirmArrivalAtCustomer() {
         if (activeOrderId && db) {
+            locationSharingActive = false; // ZÁSADNÍ: Vypne odesílání polohy zákazníkovi
+            
             db.collection("taxi_orders").doc(activeOrderId).update({
                 driverArrived: true,
                 driverLat: firebase.firestore.FieldValue.delete(),
                 driverLng: firebase.firestore.FieldValue.delete()
             }).then(() => {
-                alert("Příjezd potvrzen! Poloha autíčka byla zákazníkovi skryta.");
                 document.getElementById('btn-arrived-at-customer').style.display = 'none';
+                
+                // Zastavení aktuální navigace k zákazníkovi
+                map.stopLocate(); 
+                if (routingControl) { map.removeControl(routingControl); routingControl = null; }
+                map.off('locationfound'); 
+                
+                let dropoffVal = document.getElementById('dropoff').value;
+                
+                // Pokud zákazník zadal cíl, vyskočí dialog
+                if (dropoffVal) {
+                    if (confirm(`Zákazník zadal cíl cesty: ${dropoffVal}\n\nPřejete si zahájit navigaci k cíli?`)) {
+                        startNavigationToDropoff();
+                    } else {
+                        document.getElementById('btn-stop-nav').style.display = 'none'; 
+                        document.getElementById('btn-calc').style.display = 'block'; 
+                        document.getElementById('btn-dispatch').style.display = 'block';
+                    }
+                } else {
+                    alert("Příjezd potvrzen! Sdílení polohy bylo ukončeno.");
+                    document.getElementById('btn-stop-nav').style.display = 'none'; 
+                    document.getElementById('btn-calc').style.display = 'block'; 
+                    document.getElementById('btn-dispatch').style.display = 'block';
+                }
             }).catch(err => alert("Chyba při odesílání: " + err.message));
         }
+    }
+
+    function startNavigationToDropoff() {
+        if (!navigator.geolocation) return alert("GPS není podporována.");
+        
+        let targetCoords = coordsData.dropoff;
+        let dropoffVal = document.getElementById('dropoff').value;
+
+        // Pokud se souřadnice cíle ještě nestihly načíst na pozadí, stáhneme je hned
+        if (!targetCoords && dropoffVal) {
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(dropoffVal)}&countrycodes=cz`)
+            .then(res => res.json())
+            .then(data => {
+                if(data && data.length > 0) {
+                    coordsData.dropoff = L.latLng(data[0].lat, data[0].lon);
+                    startNavigationToDropoff(); // Znovu zavolá navigaci už se souřadnicemi
+                } else {
+                    alert("Cíl se nepodařilo lokalizovat na mapě.");
+                }
+            });
+            return;
+        }
+
+        // Upravíme tlačítka, aby bylo možné navigaci opět ručně zastavit
+        document.getElementById('btn-calc').style.display = 'none'; 
+        document.getElementById('btn-dispatch').style.display = 'none'; 
+        document.getElementById('btn-stop-nav').style.display = 'block';
+        
+        map.locate({ setView: true, maxZoom: 18, watch: true, enableHighAccuracy: true });
+        map.on('locationfound', function(e) {
+            if (realtimeDriverMarker) { 
+                realtimeDriverMarker.setLatLng(e.latlng); 
+            } else {
+                realtimeDriverMarker = L.marker(e.latlng, { icon: greenCarIcon, zIndexOffset: 1000 }).addTo(map);
+            } 
+            map.panTo(e.latlng);
+
+            if (!routingControl) {
+                routingControl = L.Routing.control({ 
+                    waypoints: [ L.Routing.waypoint(e.latlng, undefined, {allowUTurn: true}), L.Routing.waypoint(coordsData.dropoff, undefined, {allowUTurn: true}) ], 
+                    router: L.Routing.osrmv1({ serviceUrl: 'https://routing.openstreetmap.de/routed-car/route/v1', useHints: false }), 
+                    lineOptions: { styles: [ { color: '#2563eb', opacity: 0.9, weight: 7 } ] }, // Modrá trasa k cíli (odlišná od zelené k zákazníkovi)
+                    show: false, addWaypoints: false 
+                }).addTo(map);
+            }
+        });
     }
 
     function renderOrders() {
@@ -871,7 +942,7 @@
         if (realtimeDriverMarker) { realtimeDriverMarker.setLatLng(currentPos); } else { realtimeDriverMarker = L.marker(currentPos, { icon: greenCarIcon, zIndexOffset: 1000 }).addTo(map); }
         map.panTo(currentPos);
 
-        if (activeOrderId && db) {
+        if (activeOrderId && db && locationSharingActive) {
             db.collection("taxi_orders").doc(activeOrderId).update({
                 driverLat: currentPos.lat, driverLng: currentPos.lng
             });
@@ -986,6 +1057,8 @@
         document.getElementById('btn-calc').style.display = 'none'; document.getElementById('btn-dispatch').style.display = 'none'; document.getElementById('btn-stop-nav').style.display = 'block';
         L.marker(coordsData.pickup).addTo(tempMarkers).bindPopup("Jedu sem!").openPopup();
         
+        locationSharingActive = true; // ZAPNOUT SDÍLENÍ POLOHY
+
         map.locate({ setView: true, maxZoom: 18, watch: true, enableHighAccuracy: true });
         map.on('locationfound', function(e) {
             if (realtimeDriverMarker) { 
@@ -1001,7 +1074,7 @@
             } 
             map.panTo(e.latlng);
 
-            if (activeOrderId && db) {
+            if (activeOrderId && db && locationSharingActive) {
                 db.collection("taxi_orders").doc(activeOrderId).update({
                     driverLat: e.latlng.lat, driverLng: e.latlng.lng
                 });
@@ -1010,6 +1083,7 @@
     }
 
     function stopNavigation() {
+        locationSharingActive = false; // VYPNOUT SDÍLENÍ POLOHY
         map.stopLocate(); if (realtimeDriverMarker) { map.removeLayer(realtimeDriverMarker); realtimeDriverMarker = null; }
         if (routingControl) map.removeControl(routingControl); map.off('locationfound'); map.off('locationerror');
         document.getElementById('btn-stop-nav').style.display = 'none'; document.getElementById('btn-calc').style.display = 'block'; document.getElementById('btn-dispatch').style.display = 'block'; map.setZoom(15);
