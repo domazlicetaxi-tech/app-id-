@@ -103,17 +103,8 @@
         .btn-stop-taxi { flex: 2; background: var(--danger-red); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: 900; font-size: 15px; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 6px rgba(239,68,68,0.3); }
         .btn-print { flex: 1; background: #64748b; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: 900; font-size: 15px; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 6px rgba(100,116,139,0.3); }
 
-        /* --- STYLY ADMIN --- */
-        .admin-title { font-size: 18px; font-weight: bold; color: var(--green-dark); margin-bottom: 15px; border-bottom: 2px solid var(--green-light); padding-bottom: 5px; }
-        .driver-item { display: flex; flex-direction: column; padding: 12px; background: #f1f5f9; border-radius: 6px; margin-bottom: 10px; font-size: 13px; border: 1px solid #cbd5e1; }
-        .driver-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 15px; }
-        .driver-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
-        .btn-edit { background: var(--warning-amber); color: #000; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
-        .btn-delete { background: var(--danger-red); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
-        .btn-action { background: var(--driver-blue); color: white; border: none; padding: 10px; border-radius: 6px; width: 100%; cursor: pointer; font-weight: bold; font-size: 14px; text-transform: uppercase; margin-top: 10px; }
-
         /* --- STYLY OBJEDNÁVEK --- */
-        .order-card { padding: 15px; border-radius: 8px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .order-card { padding: 15px; border-radius: 8px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #cbd5e1; }
         .order-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         .order-card-title { font-weight: 900; font-size: 15px; color: var(--text-dark); margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
         .order-card-detail { font-size: 13px; margin-bottom: 4px; }
@@ -309,7 +300,7 @@
 
             <div class="admin-title" style="margin-top: 25px;">Seznam zaregistrovaných řidičů</div>
             <div id="admin-drivers-list">
-                <!-- Zde se načte seznam z databáze -->
+                <!-- Seznam se načítá z databáze -->
             </div>
         </div>
 
@@ -330,8 +321,8 @@
             
             <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #e2e8f0;">
                 <p style="margin-top:0; margin-bottom: 12px; font-size: 15px;">
-                    <strong>Zákazník:</strong> <span id="detail-customer-name" style="font-weight:bold;">-</span> 
-                    <a id="detail-customer-phone" href="#" style="margin-left: 8px; color: var(--driver-blue); font-weight: bold; text-decoration: none; border: 1px solid var(--driver-blue); padding: 2px 6px; border-radius: 4px; font-size: 13px;">📞 Volat</a>
+                    <strong>Zákazník:</strong> <span id="detail-customer-name" style="font-weight:bold; color: var(--text-dark);">-</span> 
+                    <a id="detail-customer-phone" href="#" style="margin-left: 8px; color: white; background: var(--driver-blue); font-weight: bold; text-decoration: none; padding: 4px 10px; border-radius: 6px; font-size: 13px; display: inline-block;">📞 Volat</a>
                 </p>
                 <p style="margin-top:0; margin-bottom: 10px; font-size: 14px;"><strong>Místo nakládky:</strong><br><span id="detail-pickup" style="color: var(--driver-blue); font-weight: 600;"></span></p>
                 <p style="margin-top:0; margin-bottom: 10px; font-size: 14px;" id="detail-dropoff-container"><strong>Místo vykládky:</strong><br><span id="detail-dropoff" style="color: var(--green-primary); font-weight: 600;"></span></p>
@@ -503,7 +494,6 @@
     let activeOrderId = null;
     let lastNewOrdersCount = 0;
 
-    // Funkce vygeneruje akustický tón cinknutí bez nutnosti stahovat soubor z internetu
     function playChime() {
         try {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -513,7 +503,7 @@
             let osc1 = audioCtx.createOscillator();
             let gain1 = audioCtx.createGain();
             osc1.type = 'sine';
-            osc1.frequency.setValueAtTime(880, audioCtx.currentTime); // Tón A5
+            osc1.frequency.setValueAtTime(880, audioCtx.currentTime); 
             gain1.gain.setValueAtTime(0.2, audioCtx.currentTime);
             gain1.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
             osc1.connect(gain1); gain1.connect(audioCtx.destination);
@@ -523,7 +513,7 @@
                 let osc2 = audioCtx.createOscillator();
                 let gain2 = audioCtx.createGain();
                 osc2.type = 'sine';
-                osc2.frequency.setValueAtTime(1320, audioCtx.currentTime); // Tón E6
+                osc2.frequency.setValueAtTime(1320, audioCtx.currentTime); 
                 gain2.gain.setValueAtTime(0.2, audioCtx.currentTime);
                 gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
                 osc2.connect(gain2); gain2.connect(audioCtx.destination);
@@ -534,12 +524,10 @@
     
     function initFirebaseOrders() {
         if (!db) return;
-        // Načítáme celou kolekci, abychom udrželi historii zakázek přímo v aplikaci
         db.collection("taxi_orders").onSnapshot(snapshot => {
             pendingOrders = [];
             snapshot.forEach(doc => { pendingOrders.push({ id: doc.id, ...doc.data() }); });
             
-            // Řazení od nejnovějších nahoře (podle vnitřního timestampu nebo řetězce času)
             pendingOrders.sort((a, b) => {
                 let timeA = a.timestamp ? (a.timestamp.seconds || a.timestamp) : (a.time || '');
                 let timeB = b.timestamp ? (b.timestamp.seconds || b.timestamp) : (b.time || '');
@@ -548,7 +536,6 @@
 
             const newOrders = pendingOrders.filter(o => o.status === "Nová");
             
-            // Pokud přibyla nová objednávka, zazní cinknutí
             if (newOrders.length > lastNewOrdersCount) {
                 playChime();
             }
@@ -574,12 +561,16 @@
         currentEditingOrder = pendingOrders.find(o => o.id === orderId);
         if(!currentEditingOrder) return;
         
-        // Doplnění informací o registrovaném zákazníkovi
-        document.getElementById('detail-customer-name').innerText = currentEditingOrder.customerName || "Registrovaný Zákazník";
+        // ROBUSTNÍ FILTRACE polí pro jméno a telefon z databáze (Fallback)
+        const extractedName = currentEditingOrder.customerName || currentEditingOrder.name || currentEditingOrder.clientName || currentEditingOrder.userName || "Registrovaný Zákazník";
+        const extractedPhone = currentEditingOrder.customerPhone || currentEditingOrder.phone || currentEditingOrder.clientPhone || currentEditingOrder.userPhone || currentEditingOrder.phoneNumber || currentEditingOrder.phone_number;
+
+        document.getElementById('detail-customer-name').innerText = extractedName;
         const phoneLink = document.getElementById('detail-customer-phone');
-        if (currentEditingOrder.customerPhone) {
-            phoneLink.innerText = "📞 " + currentEditingOrder.customerPhone;
-            phoneLink.href = "tel:" + currentEditingOrder.customerPhone;
+        
+        if (extractedPhone) {
+            phoneLink.innerText = "📞 " + extractedPhone;
+            phoneLink.href = "tel:" + extractedPhone.toString().replace(/\s+/g, '');
             phoneLink.style.display = "inline-block";
         } else {
             phoneLink.style.display = "none";
@@ -594,10 +585,9 @@
             document.getElementById('detail-dropoff-container').style.display = 'none';
         }
 
-        document.getElementById('detail-time').innerText = currentEditingOrder.time;
+        document.getElementById('detail-time').innerText = currentEditingOrder.time || "Neznámý";
         document.getElementById('detail-extra-time').value = currentEditingOrder.extraTime || 0;
         
-        // Zobrazení prvků potvrzení pouze pro nové čekající zakázky
         const confirmBtn = document.getElementById('btn-confirm-order-action');
         const extraTimeCont = document.getElementById('detail-extra-time-container');
         if (currentEditingOrder.status === 'Nová') {
@@ -675,7 +665,6 @@
         noMsg.style.display = 'none';
         
         pendingOrders.forEach(ord => {
-            // Určení barev na základě stavu objednávky
             let cardBg = '#fee2e2'; 
             let borderCol = '#ef4444'; 
             let statusLabel = 'ČEKÁ V POŘADÍ';
@@ -690,6 +679,9 @@
                 statusLabel = 'VYŘÍZENO';
             }
 
+            // ROBUSTNÍ FILTRACE i v seznamu karet
+            const cardName = ord.customerName || ord.name || ord.clientName || ord.userName || "Registrovaný Zákazník";
+
             let div = document.createElement('div');
             div.className = 'order-card';
             div.style.backgroundColor = cardBg;
@@ -698,7 +690,7 @@
             
             div.innerHTML = `
                 <div class="order-card-title">
-                    <span>Zákazník: <b>${ord.customerName || 'Registrovaný'}</b></span> 
+                    <span>Zákazník: <b>${cardName}</b></span> 
                     <span style="color:${borderCol}; font-weight:900; font-size:11px; text-transform:uppercase;">${statusLabel}</span>
                 </div>
                 <div class="order-card-detail"><b>Nástup:</b> ${ord.pickup}</div>
