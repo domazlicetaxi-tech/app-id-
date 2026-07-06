@@ -492,38 +492,51 @@
         } catch (error) { alert("Chyba při mazání: " + error.message); }
     }
 
-    // --- MODUL OBJEDNÁVKY ---
+    // --- MODUL OBJEDNÁVKY A ALARM ---
     let pendingOrders = [];
     let currentEditingOrder = null;
     let activeOrderId = null;
     let lastNewOrdersCount = 0;
+    
+    let alarmInterval = null;
+    let audioCtx = null;
 
-    function playChime() {
+    // Funkce spouštějící pronikavý alarm ve smyčce
+    function startAlarm() {
+        if (alarmInterval) return; // Zvuk už hraje
         try {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             if (!AudioContext) return;
-            const audioCtx = new AudioContext();
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
             
-            let osc1 = audioCtx.createOscillator();
-            let gain1 = audioCtx.createGain();
-            osc1.type = 'sine';
-            osc1.frequency.setValueAtTime(880, audioCtx.currentTime); 
-            gain1.gain.setValueAtTime(0.2, audioCtx.currentTime);
-            gain1.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-            osc1.connect(gain1); gain1.connect(audioCtx.destination);
-            osc1.start(); osc1.stop(audioCtx.currentTime + 0.3);
-            
-            setTimeout(() => {
-                let osc2 = audioCtx.createOscillator();
-                let gain2 = audioCtx.createGain();
-                osc2.type = 'sine';
-                osc2.frequency.setValueAtTime(1320, audioCtx.currentTime); 
-                gain2.gain.setValueAtTime(0.2, audioCtx.currentTime);
-                gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
-                osc2.connect(gain2); gain2.connect(audioCtx.destination);
-                osc2.start(); osc2.stop(audioCtx.currentTime + 0.4);
-            }, 100);
-        } catch (e) { console.warn("Přehrávání zvuku zablokováno prohlížečem.", e); }
+            const playSiren = () => {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = 'sawtooth'; // Pronikavý zvuk, lepší pro probuzení/vyrušení
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(1200, audioCtx.currentTime + 0.2); 
+                
+                gain.gain.setValueAtTime(1.0, audioCtx.currentTime); // Hlasitost
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.4);
+            };
+
+            playSiren(); // První zahrání hned
+            alarmInterval = setInterval(playSiren, 500); // Opakování každého půl sekundy dokud ho řidič nevypne
+        } catch (e) { console.warn("Přehrávání zvuku bylo zablokováno prohlížečem.", e); }
+    }
+
+    // Funkce pro vypnutí alarmu
+    function stopAlarm() {
+        if (alarmInterval) {
+            clearInterval(alarmInterval);
+            alarmInterval = null;
+        }
     }
     
     function initFirebaseOrders() {
@@ -540,8 +553,10 @@
 
             const newOrders = pendingOrders.filter(o => o.status === "Nová");
             
+            // Když přijde úplně nová objednávka, začni pískat a blikat
             if (newOrders.length > lastNewOrdersCount) {
-                playChime();
+                startAlarm();
+                document.getElementById('btn-top-orders').classList.add('alert');
             }
             lastNewOrdersCount = newOrders.length;
 
@@ -550,18 +565,29 @@
             if (document.getElementById('section-orders').classList.contains('active')) {
                 renderOrders();
             } else if (newOrders.length > 0) {
+                // Obnovení stavu blikání pokud tam nějaká visí
                 document.getElementById('btn-top-orders').classList.add('alert');
+            }
+
+            // Pokud nejsou žádné nové objednávky, vše vypni (např. odbavil je jiný řidič)
+            if (newOrders.length === 0) {
+                document.getElementById('btn-top-orders').classList.remove('alert');
+                stopAlarm();
             }
         });
     }
 
     function openOrdersSection() {
-        document.getElementById('btn-top-orders').classList.remove('alert');
+        stopAlarm(); // Řidič kliknul na tlačítko - zvuk PŘESTANE
+        // NEODSTRAŇUJEME TŘÍDU 'alert' - tlačítko bude stále blikat, dokud řidič nevybere zakázku
         showSection('section-orders');
         renderOrders();
     }
 
     function openOrderDetail(orderId) {
+        // Zastavit blikání po kliknutí a otevření konkrétní objednávky k vyřízení
+        document.getElementById('btn-top-orders').classList.remove('alert');
+
         currentEditingOrder = pendingOrders.find(o => o.id === orderId);
         if(!currentEditingOrder) return;
         
