@@ -72,9 +72,10 @@
         .action-section { padding-top: 10px; border-top: 2px solid #e2e8f0; margin-top: 5px; }
         .btn-calc { width: 100%; padding: 14px; background: var(--text-dark); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 16px; text-transform: uppercase; transition: background 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.2); margin-bottom: 10px; }
         .btn-calc:hover { background: #000; }
-        .btn-dispatch { width: 100%; padding: 14px; background: var(--green-primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 16px; text-transform: uppercase; box-shadow: 0 4px 6px rgba(21,128,61,0.2); }
+        .btn-dispatch { width: 100%; padding: 14px; background: var(--green-primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 16px; text-transform: uppercase; box-shadow: 0 4px 6px rgba(21,128,61,0.2); margin-bottom: 10px; }
         .btn-dispatch:hover { background: var(--green-dark); }
         .btn-stop-nav { display: none; width: 100%; padding: 14px; background: var(--danger-red); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 16px; text-transform: uppercase; box-shadow: 0 4px 6px rgba(239,68,68,0.2); margin-bottom: 10px; }
+        .btn-nav-dropoff { display: none; width: 100%; padding: 14px; background: var(--driver-blue); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 16px; text-transform: uppercase; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(37,99,235,0.2); }
 
         #results-box { margin-top: 15px; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; }
         .res-text { font-size: 12px; color: var(--text-dark); margin: 0; font-weight: 600; }
@@ -247,6 +248,8 @@
                     <button class="btn-stop-nav" id="btn-stop-nav" onclick="stopNavigation()">🛑 Zastavit navigaci</button>
                     <button id="btn-arrived-at-customer" style="display: none; width: 100%; padding: 14px; background: var(--warning-amber); color: black; border: none; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 16px; text-transform: uppercase; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" onclick="confirmArrivalAtCustomer()">👋 Jsem u zákazníka</button>
                     
+                    <button id="btn-nav-dropoff" class="btn-nav-dropoff" onclick="startNavigationToDropoff()">📍 Navigovat do místa vykládky</button>
+
                     <div id="results-box">
                         <div>
                             <p class="res-text">Vzdálenost: <span id="dist-val" style="font-size: 16px;">0</span> km</p>
@@ -342,6 +345,10 @@
 
             <div class="admin-title" style="margin-top: 35px;">Evidence vozidel - Nové vozidlo</div>
             <div style="margin-bottom: 15px;">
+                <label style="font-size:11px; margin-bottom:2px;">Pořadové číslo (Evidenční)</label>
+                <input type="number" id="new-vehicle-index" placeholder="Např. 1">
+            </div>
+            <div style="margin-bottom: 15px;">
                 <label style="font-size:11px; margin-bottom:2px;">Model vozidla</label>
                 <input type="text" id="new-vehicle-model" placeholder="Např. Škoda Octavia III Combi">
             </div>
@@ -387,6 +394,11 @@
             <div id="detail-assigned-driver" style="display: none; background: #e0f2fe; color: var(--driver-blue); padding: 12px; border-radius: 8px; border: 1px solid #bae6fd; margin-bottom: 15px; font-weight: bold; text-align: center;"></div>
 
             <button class="btn-dispatch" id="btn-confirm-order-action" onclick="confirmOrder()" style="margin-bottom: 10px;">Potvrdit a přistavit k zákazníkovi</button>
+            
+            <div id="driver-action-buttons" style="display: none; gap: 10px; flex-direction: column;">
+                <button class="btn-dispatch" onclick="resumeOrder()" style="background: var(--warning-amber); color: black; margin-bottom: 0;">▶ Pokračovat ve vyřizování</button>
+                <button class="btn-dispatch" onclick="cancelOrder()" style="background: var(--danger-red); margin-bottom: 10px;">✖ Zrušit zakázku</button>
+            </div>
         </div>
 
     </div>
@@ -536,20 +548,19 @@
         const select = document.getElementById('driver-vehicle-select');
         if (!db) return;
         try {
-            const snapshot = await db.collection("system_vehicles").get();
+            // Seřazení rovnou z DB dle indexu (pokud existuje)
+            const snapshot = await db.collection("system_vehicles").orderBy("index").get();
             select.innerHTML = '<option value="">-- Vyberte vozidlo --</option>';
             
-            let index = 1;
             snapshot.forEach(doc => {
                 const data = doc.data();
                 const opt = document.createElement('option');
                 opt.value = doc.id;
-                opt.innerText = `${index}. ${data.model} [${data.plate}]`;
+                opt.innerText = `${data.index}. ${data.model} [${data.plate}]`;
                 opt.setAttribute('data-model', data.model);
                 opt.setAttribute('data-plate', data.plate);
-                opt.setAttribute('data-index', index);
+                opt.setAttribute('data-index', data.index);
                 select.appendChild(opt);
-                index++;
             });
 
             const savedVehicleId = localStorage.getItem('taxi_green_vehicle_id');
@@ -660,14 +671,18 @@
         container.innerHTML = '<p style="font-size:13px; color:var(--text-muted);">Načítám vozidla z databáze...</p>';
         if (!db) return;
         if (adminVehiclesListener) { adminVehiclesListener(); }
-        adminVehiclesListener = db.collection("system_vehicles").onSnapshot(snapshot => {
+        adminVehiclesListener = db.collection("system_vehicles").orderBy("index").onSnapshot(snapshot => {
             container.innerHTML = '';
             if (snapshot.empty) { container.innerHTML = '<p style="font-size:13px; font-style:italic;">Zatím nejsou zaevidována žádná vozidla.</p>'; return; }
             snapshot.forEach(doc => {
-                const data = doc.data(); const id = doc.id; const div = document.createElement('div'); div.className = 'driver-item'; div.style.display = 'flex'; div.style.justify = 'space-between'; div.style.alignItems = 'center';
+                const data = doc.data(); const id = doc.id; const div = document.createElement('div'); div.className = 'driver-item'; 
+                div.style.display = 'flex'; div.style.justifyContent = 'space-between'; div.style.alignItems = 'center';
                 div.innerHTML = `
-                    <div><strong style="font-size: 14px; color: var(--text-dark);">${data.model}</strong><br><span style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-weight: bold; font-size: 12px; display: inline-block; margin-top: 4px;">${data.plate}</span></div>
-                    <button class="btn-delete" onclick="deleteVehicle('${id}', '${data.model}')">Smazat</button>`;
+                    <div><strong style="font-size: 14px; color: var(--text-dark);">${data.index || '?'}. ${data.model}</strong><br><span style="background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-weight: bold; font-size: 12px; display: inline-block; margin-top: 4px;">${data.plate}</span></div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn-edit" onclick="editVehicle('${id}', '${data.index}', '${data.model}', '${data.plate}')">Upravit</button>
+                        <button class="btn-delete" onclick="deleteVehicle('${id}', '${data.model}')">Smazat</button>
+                    </div>`;
                 container.appendChild(div);
             });
         }, () => { container.innerHTML = `<p style="color:red; font-size:13px; font-weight:bold;">Chyba: Databáze odmítla přístup k vozidlům.</p>`; });
@@ -675,13 +690,33 @@
 
     async function registerVehicle() {
         if (!db) return alert("Chyba spojení s databází.");
-        const model = document.getElementById('new-vehicle-model').value.trim(); const plate = document.getElementById('new-vehicle-plate').value.trim().toUpperCase();
+        const index = parseInt(document.getElementById('new-vehicle-index').value.trim()) || 99;
+        const model = document.getElementById('new-vehicle-model').value.trim(); 
+        const plate = document.getElementById('new-vehicle-plate').value.trim().toUpperCase();
+        
         if (!model || !plate) { return alert("Vyplňte prosím model vozidla i registrační značku."); }
         try {
-            await db.collection("system_vehicles").add({ model: model, plate: plate });
+            await db.collection("system_vehicles").add({ index: index, model: model, plate: plate });
             alert(`Vozidlo ${model} s SPZ ${plate} bylo úspěšně zaevidováno.`);
-            document.getElementById('new-vehicle-model').value = ''; document.getElementById('new-vehicle-plate').value = '';
+            document.getElementById('new-vehicle-index').value = ''; 
+            document.getElementById('new-vehicle-model').value = ''; 
+            document.getElementById('new-vehicle-plate').value = '';
         } catch (error) { alert("Chyba databáze: " + error.message); }
+    }
+
+    async function editVehicle(docId, oldIndex, oldModel, oldPlate) {
+        const newIndex = prompt("Zadejte nové pořadové číslo:", oldIndex); if (newIndex === null) return;
+        const newModel = prompt("Zadejte nový model vozidla:", oldModel); if (newModel === null) return;
+        const newPlate = prompt("Zadejte novou registrační značku (SPZ):", oldPlate); if (newPlate === null) return;
+        
+        try {
+            await db.collection("system_vehicles").doc(docId).update({
+                index: parseInt(newIndex) || 99,
+                model: newModel.trim(),
+                plate: newPlate.trim().toUpperCase()
+            });
+            alert("Vozidlo bylo úspěšně upraveno.");
+        } catch (error) { alert("Chyba při úpravě vozidla: " + error.message); }
     }
 
     async function deleteVehicle(docId, modelName) {
@@ -759,15 +794,36 @@
         const confirmBtn = document.getElementById('btn-confirm-order-action');
         const extraTimeCont = document.getElementById('detail-extra-time-container');
         const assignedDriverEl = document.getElementById('detail-assigned-driver');
+        const actionBtns = document.getElementById('driver-action-buttons');
 
-        if (currentEditingOrder.status === 'Nová') { confirmBtn.style.display = 'block'; extraTimeCont.style.display = 'block'; assignedDriverEl.style.display = 'none';
+        const myFirstName = localStorage.getItem('taxi_green_driver_firstname');
+
+        // Rozřazení toho, co se řidiči ukáže za tlačítka v závislosti na statusu
+        if (currentEditingOrder.status === 'Nová') { 
+            confirmBtn.style.display = 'block'; 
+            extraTimeCont.style.display = 'block'; 
+            assignedDriverEl.style.display = 'none';
+            actionBtns.style.display = 'none';
+        } else if (currentEditingOrder.status === 'Potvrzeno' && currentEditingOrder.driverName === myFirstName) {
+            // Objednávka je rozpracovaná MNOU
+            confirmBtn.style.display = 'none'; 
+            extraTimeCont.style.display = 'none';
+            assignedDriverEl.style.display = 'none';
+            actionBtns.style.display = 'flex';
         } else {
-            confirmBtn.style.display = 'none'; extraTimeCont.style.display = 'none';
+            // Hotová, zrušená, nebo ji dělá NĚKDO JINÝ
+            confirmBtn.style.display = 'none'; 
+            extraTimeCont.style.display = 'none';
+            actionBtns.style.display = 'none';
+            
             if (currentEditingOrder.driverName) {
-                let text = `Tuto zakázku již vyřizuje řidič: ${currentEditingOrder.driverName}`;
+                let text = `Tuto zakázku vyřizuje (vyřizoval) řidič: ${currentEditingOrder.driverName}`;
                 if (currentEditingOrder.vehicleModel) { text += ` s vozidlem ${currentEditingOrder.vehicleModel} (${currentEditingOrder.vehiclePlate})`; }
+                if (currentEditingOrder.status === 'Zrušeno') { text += `\n\n[ZRUŠENO: ${currentEditingOrder.cancelReason || 'Bez udání důvodu'}]`; }
                 assignedDriverEl.innerText = text; assignedDriverEl.style.display = 'block';
-            } else { assignedDriverEl.innerText = `Zakázka je rozpracovaná/uzavřená.`; assignedDriverEl.style.display = 'block'; }
+            } else { 
+                assignedDriverEl.innerText = `Zakázka je rozpracovaná / uzavřená.`; assignedDriverEl.style.display = 'block'; 
+            }
         }
 
         tempMarkers.clearLayers(); clearRoutes();
@@ -806,6 +862,7 @@
         const vehicleId = localStorage.getItem('taxi_green_vehicle_id');
         const vModel = localStorage.getItem('taxi_green_vehicle_model');
         const vPlate = localStorage.getItem('taxi_green_vehicle_plate');
+        const vIndex = localStorage.getItem('taxi_green_vehicle_index');
 
         if (!vehicleId || !vModel) {
             alert("⚠️ CHYBA: Před potvrzením objednávky si musíte zvolit vozidlo, na kterém jedete!");
@@ -822,18 +879,20 @@
              firstName = fullName.split(' ')[0] || "Řidič"; 
         }
 
+        // Odeslání všech informací zákazníkovi (včetně Indexu, modelu, SPZ a jména)
         db.collection("taxi_orders").doc(activeOrderId).update({
             status: "Potvrzeno",
             extraTime: extraTime,
             driverName: firstName,
             vehicleModel: vModel,
-            vehiclePlate: vPlate
+            vehiclePlate: vPlate,
+            vehicleIndex: vIndex 
         });
 
         document.getElementById('pickup').value = currentEditingOrder.pickup;
         document.getElementById('dropoff').value = currentEditingOrder.dropoff || '';
         
-        alert(`Objednávka potvrzena!\n\nZákazník uvidí, že pro něj jede řidič ${firstName} s vozem ${vModel} [${vPlate}].`);
+        alert(`Objednávka potvrzena!\n\nZákazník uvidí, že pro něj jede řidič ${firstName} s vozem ${vModel} [${vPlate}]. Výpočet dojezdového času začne ihned.`);
         showSection('section-app');
         document.getElementById('btn-arrived-at-customer').style.display = 'block';
 
@@ -848,17 +907,78 @@
         if (currentEditingOrder.dropoff) { fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(currentEditingOrder.dropoff)}&countrycodes=cz`).then(res => res.json()).then(data => { if(data && data.length > 0) coordsData.dropoff = L.latLng(data[0].lat, data[0].lon); }); }
     }
 
+    // POKRAČOVÁNÍ VE VYŘIZOVÁNÍ
+    function resumeOrder() {
+        if(!currentEditingOrder) return;
+        activeOrderId = currentEditingOrder.id;
+        
+        document.getElementById('pickup').value = currentEditingOrder.pickup;
+        document.getElementById('dropoff').value = currentEditingOrder.dropoff || '';
+        
+        showSection('section-app');
+        document.getElementById('btn-arrived-at-customer').style.display = 'block';
+
+        let pLat = currentEditingOrder.pickupLat || currentEditingOrder.lat || currentEditingOrder.latitude;
+        let pLng = currentEditingOrder.pickupLng || currentEditingOrder.lng || currentEditingOrder.lon || currentEditingOrder.longitude;
+
+        if (pLat && pLng) { 
+            coordsData.pickup = L.latLng(pLat, pLng); 
+            dispatchVehicle(); 
+        } else {
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(currentEditingOrder.pickup)}&countrycodes=cz`).then(res => res.json()).then(data => {
+                if(data && data.length > 0) { coordsData.pickup = L.latLng(data[0].lat, data[0].lon); dispatchVehicle(); }
+            });
+        }
+        
+        if (currentEditingOrder.dropoff) { 
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(currentEditingOrder.dropoff)}&countrycodes=cz`).then(res => res.json()).then(data => { 
+                if(data && data.length > 0) coordsData.dropoff = L.latLng(data[0].lat, data[0].lon); 
+            }); 
+        }
+    }
+
+    // ZRUŠENÍ ZAKÁZKY ŘIDIČEM
+    function cancelOrder() {
+        if(!currentEditingOrder) return;
+        const reason = prompt("Zadejte důvod zrušení (nepovinné):");
+        if (reason === null) return; 
+        
+        db.collection("taxi_orders").doc(currentEditingOrder.id).update({
+            status: "Zrušeno",
+            cancelReason: reason.trim()
+        }).then(() => {
+            alert("Zakázka byla zrušena.");
+            if (activeOrderId === currentEditingOrder.id) {
+                stopNavigation();
+                activeOrderId = null;
+            }
+            openOrdersSection();
+        }).catch(err => alert("Chyba při rušení objednávky: " + err.message));
+    }
+
     function confirmArrivalAtCustomer() {
         if (activeOrderId && db) {
             locationSharingActive = false; 
-            db.collection("taxi_orders").doc(activeOrderId).update({ driverArrived: true, driverLat: firebase.firestore.FieldValue.delete(), driverLng: firebase.firestore.FieldValue.delete() }).then(() => {
+            
+            // Odeslání flagu driverArrived, který u zákazníka vyvolá Hlášení a odpojí souřadnice
+            db.collection("taxi_orders").doc(activeOrderId).update({ 
+                driverArrived: true, 
+                driverLat: firebase.firestore.FieldValue.delete(), 
+                driverLng: firebase.firestore.FieldValue.delete() 
+            }).then(() => {
                 document.getElementById('btn-arrived-at-customer').style.display = 'none';
+                document.getElementById('btn-stop-nav').style.display = 'none'; // Skryje tlačítko k zastavení navigace k nakládce
+                
                 map.stopLocate(); clearRoutes(); map.off('locationfound'); 
+                
                 let dropoffVal = document.getElementById('dropoff').value;
                 if (dropoffVal) {
-                    if (confirm(`Zákazník zada cíl cesty: ${dropoffVal}\n\nPřejete si zahájit navigaci k cíli?`)) { startNavigationToDropoff(); } else { resetActionButtons(); }
+                    // Cíl je zadán -> zobrazit TLAČÍTKO pro spuštění navigace (žádný popup)
+                    alert("Zákazník byl informován o přistavení. Sledování polohy pro zákazníka bylo vypnuto.");
+                    document.getElementById('btn-nav-dropoff').style.display = 'block';
                 } else {
-                    alert("Příjezd potvrzen! Sdílení polohy bylo ukončeno.");
+                    // Cíl nezadán -> aplikace uvolněna
+                    alert("Úspěšně přistaveno k zákazníkovi.\nZákaznická aplikace byla odpojena ze sledování. Aplikace je nyní uvolněna.");
                     resetActionButtons();
                 }
             }).catch(err => alert("Chyba při odesílání: " + err.message));
@@ -870,7 +990,11 @@
         let targetCoords = coordsData.dropoff; let dropoffVal = document.getElementById('dropoff').value;
         if (!targetCoords && dropoffVal) { fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(dropoffVal)}&countrycodes=cz`).then(res => res.json()).then(data => { if(data && data.length > 0) { coordsData.dropoff = L.latLng(data[0].lat, data[0].lon); startNavigationToDropoff(); } else { alert("Cíl se nepodařilo lokalizovat na mapě."); } }); return; }
 
-        document.getElementById('btn-calc').style.display = 'none'; document.getElementById('btn-dispatch').style.display = 'none'; document.getElementById('btn-stop-nav').style.display = 'block';
+        document.getElementById('btn-calc').style.display = 'none'; 
+        document.getElementById('btn-dispatch').style.display = 'none'; 
+        document.getElementById('btn-nav-dropoff').style.display = 'none'; // Jakmile na něj klikne, skryjeme ho
+        document.getElementById('btn-stop-nav').style.display = 'block'; // Zobrazíme zpět STOP navigaci (pokud by chtěl řidič navigaci do cíle vypnout)
+        
         map.locate({ setView: true, maxZoom: 18, watch: true, enableHighAccuracy: true });
         map.on('locationfound', function(e) {
             if (realtimeDriverMarker) { realtimeDriverMarker.setLatLng(e.latlng); } else { realtimeDriverMarker = L.marker(e.latlng, { icon: greenCarIcon, zIndexOffset: 1000 }).addTo(map); } map.panTo(e.latlng);
@@ -892,7 +1016,11 @@
         
         pendingOrders.forEach(ord => {
             let cardBg = '#fee2e2'; let borderCol = '#ef4444'; let statusLabel = 'ČEKÁ V POŘADÍ';
-            if (ord.status === 'Potvrzeno') { cardBg = '#f1f5f9'; borderCol = '#64748b'; statusLabel = 'VYŘIZUJE SE'; } else if (ord.status === 'Dokončeno') { cardBg = '#dcfce7'; borderCol = '#22c55e'; statusLabel = 'VYŘÍZENO'; }
+            
+            // Obarvování karet podle nového schématu (včetně Zrušeno)
+            if (ord.status === 'Potvrzeno') { cardBg = '#f1f5f9'; borderCol = '#64748b'; statusLabel = 'VYŘIZUJE SE'; } 
+            else if (ord.status === 'Dokončeno') { cardBg = '#dcfce7'; borderCol = '#22c55e'; statusLabel = 'VYŘÍZENO'; }
+            else if (ord.status === 'Zrušeno') { cardBg = '#f3f4f6'; borderCol = '#9ca3af'; statusLabel = 'ZRUŠENO'; }
 
             const cardName = ord.customerName || ord.name || ord.clientName || ord.userName || "Registrovaný Zákazník";
             let driverLabelHTML = '';
@@ -986,6 +1114,7 @@
     let routingControl = null; // Zachováno pro jistotu, kdyby systém někam chtěl sáhnout
     let activeSelection = null; 
     let realtimeDriverMarker = null;
+    let etaUpdated = false; // State proti neustálemu zasílání ETA pro objednávku
 
     // --- NOVÁ FUNKCE PRO ÚKLID VŠECH TRAS ---
     function clearRoutes() {
@@ -1004,6 +1133,7 @@
         document.getElementById('btn-dispatch').style.display = 'none';
         document.getElementById('btn-stop-nav').style.display = 'none';
         document.getElementById('btn-arrived-at-customer').style.display = 'none';
+        document.getElementById('btn-nav-dropoff').style.display = 'none'; // RESET NOVÉHO TLAČÍTKA
     }
 
     function changeMode(mode) { 
@@ -1183,22 +1313,40 @@
         const vehicleId = localStorage.getItem('taxi_green_vehicle_id');
         if (!vehicleId) { return alert("⚠️ Vyberte prosím nejprve vozidlo, na kterém dnes jedete! (Tlačítko s autíčkem nahoře)"); }
 
-        clearRoutes(); tempMarkers.clearLayers();
+        clearRoutes(); tempMarkers.clearLayers(); etaUpdated = false;
         document.getElementById('btn-calc').style.display = 'none'; document.getElementById('btn-dispatch').style.display = 'none'; document.getElementById('btn-stop-nav').style.display = 'block';
         L.marker(coordsData.pickup, {icon: iconPickup}).addTo(tempMarkers).bindPopup("Jedu sem!").openPopup();
         locationSharingActive = true; 
 
         map.locate({ setView: true, maxZoom: 18, watch: true, enableHighAccuracy: true });
         map.on('locationfound', function(e) {
-            if (realtimeDriverMarker) { realtimeDriverMarker.setLatLng(e.latlng); } else {
+            if (realtimeDriverMarker) { 
+                realtimeDriverMarker.setLatLng(e.latlng); 
+            } else {
                 realtimeDriverMarker = L.marker(e.latlng, { icon: greenCarIcon, zIndexOffset: 1000 }).addTo(map);
                 let rc = L.Routing.control({ 
                     waypoints: [ createWaypoint(e.latlng), createWaypoint(coordsData.pickup) ], 
                     router: getRouter(2), 
                     lineOptions: { styles: [ { color: '#00FF00', opacity: 1, weight: 8 } ] }, show: false, addWaypoints: false 
                 }).addTo(map);
+                
+                // EVENT: Spočtení a odeslání ETA zákazníkovi
+                rc.on('routesfound', function(res) {
+                    if (activeOrderId && db && locationSharingActive && !etaUpdated) {
+                        let durationSec = res.routes[0].summary.totalTime;
+                        let durationMin = Math.round(durationSec / 60);
+                        let extraTime = parseInt(document.getElementById('detail-extra-time').value) || 0;
+                        
+                        db.collection("taxi_orders").doc(activeOrderId).update({ 
+                            eta: durationMin + extraTime
+                        });
+                        etaUpdated = true; // Pojistka, abychom zbytečně neposílali stejný odhad každou vteřinu
+                    }
+                });
+
                 routingControls.push(rc);
-            } map.panTo(e.latlng);
+            } 
+            map.panTo(e.latlng);
             if (activeOrderId && db && locationSharingActive) { db.collection("taxi_orders").doc(activeOrderId).update({ driverLat: e.latlng.lat, driverLng: e.latlng.lng }); }
         });
     }
