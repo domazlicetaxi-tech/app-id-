@@ -407,6 +407,43 @@
 </div>
 
 <script>
+    // --- WAKE LOCK API (NEZHASÍNÁNÍ DISPLEJE) ---
+    let wakeLock = null;
+    let isWakeLockRequested = false;
+
+    async function requestWakeLock() {
+        if ('wakeLock' in navigator) {
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+                isWakeLockRequested = true;
+                console.log('Displej je uzamčen (nezhasne).');
+                
+                wakeLock.addEventListener('release', () => {
+                    console.log('Zámek displeje byl uvolněn.');
+                });
+            } catch (err) {
+                console.error(`Chyba Wake Lock: ${err.name}, ${err.message}`);
+            }
+        } else {
+            console.warn('Wakelock API není v tomto prohlížeči podporováno.');
+        }
+    }
+
+    function releaseWakeLock() {
+        isWakeLockRequested = false;
+        if (wakeLock !== null) {
+            wakeLock.release().then(() => {
+                wakeLock = null;
+            });
+        }
+    }
+
+    document.addEventListener('visibilitychange', async () => {
+        if (wakeLock !== null && document.visibilityState === 'visible' && isWakeLockRequested) {
+            await requestWakeLock();
+        }
+    });
+
     // --- DEFINICE IKON ---
     const iconBase = L.divIcon({ html: '<div style="font-size: 26px; text-shadow: 0 0 5px white;">🏠</div>', className: 'custom-map-icon', iconSize: [30, 30], iconAnchor: [15, 30] });
     const iconPickup = L.divIcon({ html: '<div style="font-size: 26px; text-shadow: 0 0 5px white;">🧍‍♂️</div>', className: 'custom-map-icon', iconSize: [30, 30], iconAnchor: [15, 30] });
@@ -960,6 +997,9 @@
         if (activeOrderId && db) {
             locationSharingActive = false; 
             
+            // UVOLNĚNÍ DISPLEJE PŘI ČEKÁNÍ NA ZÁKAZNÍKA
+            releaseWakeLock();
+
             // Odeslání flagu driverArrived, který u zákazníka vyvolá Hlášení a odpojí souřadnice
             db.collection("taxi_orders").doc(activeOrderId).update({ 
                 driverArrived: true, 
@@ -987,6 +1027,10 @@
 
     function startNavigationToDropoff() {
         if (!navigator.geolocation) return alert("GPS není podporována.");
+        
+        // ZAPNUTÍ DISPLEJE PŘI NAVIGACI DO CÍLE
+        requestWakeLock();
+        
         let targetCoords = coordsData.dropoff; let dropoffVal = document.getElementById('dropoff').value;
         if (!targetCoords && dropoffVal) { fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(dropoffVal)}&countrycodes=cz`).then(res => res.json()).then(data => { if(data && data.length > 0) { coordsData.dropoff = L.latLng(data[0].lat, data[0].lon); startNavigationToDropoff(); } else { alert("Cíl se nepodařilo lokalizovat na mapě."); } }); return; }
 
@@ -1057,6 +1101,10 @@
 
     async function startFare(tariffName, ratePerKm) {
         if (!navigator.geolocation) { alert("Váš prohlížeč nepodporuje GPS polohu."); return; }
+        
+        // ZAPNUTÍ DISPLEJE PRO TAXAMETR
+        requestWakeLock();
+        
         const targetName = document.getElementById('taxi-target-input').value || "Nezadáno"; document.getElementById('taxi-display-target').innerText = targetName;
         taxiBaseFare = 20.00; taxiCurrentRate = ratePerKm; taxiDistanceKm = 0; taxiWaitSeconds = 0; taxiWaitCost = 0; taxiLastPosition = null; taxiLastMoveTime = Date.now();
         document.getElementById('taxi-led-tariff').innerText = tariffName.toUpperCase(); document.getElementById('taxi-led-rate-info').innerText = ratePerKm; document.getElementById('taxi-led-dist').innerText = "0.00"; document.getElementById('taxi-led-wait-time').innerText = "00:00"; document.getElementById('taxi-led-wait-cost').innerText = "0.00"; updateTotalPriceDisplay();
@@ -1092,6 +1140,9 @@
     }
 
     function stopFare() {
+        // UVOLNĚNÍ DISPLEJE
+        releaseWakeLock();
+        
         if (taxiWatchId) { navigator.geolocation.clearWatch(taxiWatchId); taxiWatchId = null; } if (taxiWaitInterval) { clearInterval(taxiWaitInterval); taxiWaitInterval = null; } clearRoutes(); if (realtimeDriverMarker) { map.removeLayer(realtimeDriverMarker); realtimeDriverMarker = null; }
         if (activeOrderId && db) { db.collection("taxi_orders").doc(activeOrderId).update({ status: "Dokončeno" }); activeOrderId = null; }
         document.getElementById('btn-arrived-at-customer').style.display = 'none';
@@ -1313,6 +1364,9 @@
         const vehicleId = localStorage.getItem('taxi_green_vehicle_id');
         if (!vehicleId) { return alert("⚠️ Vyberte prosím nejprve vozidlo, na kterém dnes jedete! (Tlačítko s autíčkem nahoře)"); }
 
+        // ZAPNUTÍ DISPLEJE PŘI NAVIGACI K ZÁKAZNÍKOVI
+        requestWakeLock();
+
         clearRoutes(); tempMarkers.clearLayers(); etaUpdated = false;
         document.getElementById('btn-calc').style.display = 'none'; document.getElementById('btn-dispatch').style.display = 'none'; document.getElementById('btn-stop-nav').style.display = 'block';
         L.marker(coordsData.pickup, {icon: iconPickup}).addTo(tempMarkers).bindPopup("Jedu sem!").openPopup();
@@ -1352,6 +1406,9 @@
     }
 
     function stopNavigation() {
+        // UVOLNĚNÍ DISPLEJE
+        releaseWakeLock();
+        
         locationSharingActive = false; map.stopLocate(); if (realtimeDriverMarker) { map.removeLayer(realtimeDriverMarker); realtimeDriverMarker = null; }
         clearRoutes(); map.off('locationfound'); map.off('locationerror');
         resetActionButtons();
