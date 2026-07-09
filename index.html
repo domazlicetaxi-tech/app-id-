@@ -277,10 +277,12 @@
                 
                 <label style="font-size: 15px; color: var(--green-dark);">Vyberte sazbu pro zahájení jízdy:</label>
                 <div class="tariff-buttons">
-                    <button class="btn-tariff tariff-city" onclick="startFare('město', 34)">1. Město (34 Kč/km)</button>
-                    <button class="btn-tariff tariff-outside" onclick="startFare('mimo město', 26)">2. Mimo město (26 Kč/km)</button>
-                    <button class="btn-tariff tariff-tour" onclick="startFare('okružní', 30)">3. Okružní (30 Kč/km)</button>
-                </div>
+    <button class="btn-tariff tariff-outside" onclick="startFare('mimo město', 26)">Mimo město (26 Kč/km)</button>
+    
+    <button class="btn-tariff tariff-city" onclick="startFare('město', 34)">Město (34 Kč/km)</button>
+    
+    <button class="btn-tariff tariff-tour" onclick="startFare('okružní', 13)">Okružní (13 Kč/km)</button>
+</div>
             </div>
 
             <div id="taxi-running" style="display: none;">
