@@ -153,8 +153,9 @@
             position: relative !important; top: 0 !important; left: 0 !important; transform: none !important; width: 100% !important; max-width: none !important; margin: 0 !important; border-radius: 0 !important; border-left: none !important; border-bottom: 4px solid var(--green-light); box-sizing: border-box; display: flex !important;
         }
         
+        /* Úprava pro profesionální Track-Up navigaci */
         body.taxameter-active #map {
-            position: fixed !important; bottom: 0 !important; left: 0 !important; width: 100vw !important; z-index: 1 !important; height: auto !important;
+            position: fixed !important; z-index: 1 !important;
         }
     </style>
 </head>
@@ -484,9 +485,14 @@
         sectionTaximeter.appendChild(taxiRunning);
         appContainer.appendChild(navBox);
 
-        // Vynulování mapy zpět
+        // Vynulování offsetů a mapy zpět
         const mapElm = document.getElementById('map');
-        if (mapElm) { mapElm.style.top = ''; mapElm.style.height = ''; }
+        if (mapElm) { 
+            mapElm.style.top = ''; 
+            mapElm.style.left = '';
+            mapElm.style.width = '';
+            mapElm.style.height = ''; 
+        }
         setTimeout(() => { if (typeof map !== 'undefined') map.invalidateSize(); }, 300);
         
         // Zrušení povelů, aby nemluvila do prázdna
@@ -498,8 +504,19 @@
         if(document.body.classList.contains('taxameter-active')) {
             const panelHeight = document.getElementById('taxameter-top-panel').offsetHeight;
             const mapElm = document.getElementById('map');
-            mapElm.style.top = panelHeight + 'px';
-            mapElm.style.height = `calc(100vh - ${panelHeight}px)`;
+            
+            // Profesionální navigace (Track-Up) vyžaduje větší plátno do šířky (aby neprosvítaly rohy) 
+            // a posun fyzického středu plátna s autíčkem do spodní třetiny obrazovky.
+            mapElm.style.left = '-25vw';
+            mapElm.style.width = '150vw';
+            
+            const availableHeight = window.innerHeight - panelHeight;
+            const mapHeight = availableHeight * 1.8; // Zvětšené plátno na výšku pro bleed při rotaci
+            const topOffset = panelHeight - (availableHeight * 0.2); // Vhodný posun plátna výš
+            
+            mapElm.style.top = topOffset + 'px';
+            mapElm.style.height = mapHeight + 'px';
+            
             if (typeof map !== 'undefined') map.invalidateSize();
         }
     });
@@ -1282,10 +1299,10 @@
         map.locate({ setView: true, maxZoom: 18, watch: true, enableHighAccuracy: true });
         map.on('locationfound', function(e) {
             
-
             // 1. Pozvolná rotace mapy se stabilizací směru a natáčení do zatáček
             if (taxiLastPosition) {
-                if (e.latlng.distanceTo(taxiLastPosition) > 2) {
+                let dist = e.latlng.distanceTo(taxiLastPosition);
+                if (dist > 3) {
                     let rawBearing = calculateBearing(taxiLastPosition.lat, taxiLastPosition.lng, e.latlng.lat, e.latlng.lng);
                     lastKnownBearing = getSmoothedBearing(rawBearing);
                     
@@ -1296,15 +1313,19 @@
                     let currentMapBearing = map.getBearing() || 0;
                     let iconRotation = rawBearing - currentMapBearing;
                     iconRotation = ((iconRotation + 540) % 360) - 180;
-                    iconRotation = Math.max(-35, Math.min(35, iconRotation));
+                    iconRotation = Math.max(-25, Math.min(25, iconRotation)); // Mírný "wiggle" efekt 
 
                     const carIconEl = document.getElementById('driver-car-icon');
                     if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
+                } else {
+                    // Vozidlo stojí, srovnáme rotaci (zmrazení kompasu)
+                    const carIconEl = document.getElementById('driver-car-icon');
+                    if (carIconEl) { carIconEl.style.transform = `rotate(0deg)`; }
                 }
             }
             taxiLastPosition = e.latlng;
 
-            // 2. Vykreslení autíčka (pokud řidič nestuduje mapu, centrujeme)
+            // 2. Vykreslení autíčka a přesun mapy
             if (realtimeDriverMarker) { 
                 realtimeDriverMarker.setLatLng(e.latlng); 
             } else { 
@@ -1446,7 +1467,8 @@
         if (accuracy > 30) return;
 
         if (taxiLastPosition) {
-            if (taxiLastPosition.distanceTo(currentPos) > 2) { 
+            let dist = taxiLastPosition.distanceTo(currentPos);
+            if (dist > 3) { 
                 let rawBearing = calculateBearing(taxiLastPosition.lat, taxiLastPosition.lng, currentPos.lat, currentPos.lng);
                 lastKnownBearing = getSmoothedBearing(rawBearing);
                 
@@ -1457,10 +1479,13 @@
                 let currentMapBearing = map.getBearing() || 0;
                 let iconRotation = rawBearing - currentMapBearing;
                 iconRotation = ((iconRotation + 540) % 360) - 180;
-                iconRotation = Math.max(-35, Math.min(35, iconRotation));
+                iconRotation = Math.max(-25, Math.min(25, iconRotation));
 
                 const carIconEl = document.getElementById('driver-car-icon');
                 if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
+            } else {
+                const carIconEl = document.getElementById('driver-car-icon');
+                if (carIconEl) { carIconEl.style.transform = `rotate(0deg)`; }
             }
         }
         
@@ -1759,15 +1784,26 @@
             
             // 1. Pozvolná rotace mapy se stabilizací směru (Sygic styl)
             if (taxiLastPosition) {
-                let rawBearing = calculateBearing(taxiLastPosition.lat, taxiLastPosition.lng, e.latlng.lat, e.latlng.lng);
-                if (e.latlng.distanceTo(taxiLastPosition) > 2) {
+                let dist = e.latlng.distanceTo(taxiLastPosition);
+                if (dist > 3) {
+                    let rawBearing = calculateBearing(taxiLastPosition.lat, taxiLastPosition.lng, e.latlng.lat, e.latlng.lng);
                     lastKnownBearing = getSmoothedBearing(rawBearing);
+                    
                     if (!isUserInteracting) {
                         map.setBearing(lastKnownBearing); 
                     }
+                    
+                    let currentMapBearing = map.getBearing() || 0;
+                    let iconRotation = rawBearing - currentMapBearing;
+                    iconRotation = ((iconRotation + 540) % 360) - 180;
+                    iconRotation = Math.max(-25, Math.min(25, iconRotation));
+
+                    const carIconEl = document.getElementById('driver-car-icon');
+                    if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
+                } else {
+                    const carIconEl = document.getElementById('driver-car-icon');
+                    if (carIconEl) { carIconEl.style.transform = `rotate(0deg)`; }
                 }
-                const carIconEl = document.getElementById('driver-car-icon');
-                if (carIconEl) { carIconEl.style.transform = `rotate(${lastKnownBearing}deg)`; }
             }
             taxiLastPosition = e.latlng;
 
