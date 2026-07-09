@@ -1558,7 +1558,10 @@
         if (realtimeDriverMarker) { map.removeLayer(realtimeDriverMarker); realtimeDriverMarker = null; }
         if (activeOrderId && db) { db.collection("taxi_orders").doc(activeOrderId).update({ status: "Dokončeno" }); activeOrderId = null; }
         document.getElementById('btn-arrived-at-customer').style.display = 'none';
-        
+        // Vymazání cíle při resetu
+        document.getElementById('taxi-target-input').value = '';
+        document.getElementById('taxi-display-target').innerText = 'Nezadáno';
+        if (typeof coordsData !== 'undefined') coordsData.dropoff = null;
         document.getElementById('taxi-running').style.display = 'none';
         document.getElementById('taxi-setup').style.display = 'block';
     }
