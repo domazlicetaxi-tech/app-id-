@@ -133,9 +133,46 @@
             #panel { width: 100%; height: auto; order: 1; position: relative; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: block; }
             #map { width: 100%; height: 50vh; min-height: 350px; order: 2; z-index: 1; display: block; }
         }
+
+        /* --- NOVÉ: SPECIÁLNÍ REŽIM PRO AKTIVNÍ TAXAMETR (FULLSCREEN) --- */
+        body.taxameter-active { margin: 0; padding: 0; overflow: hidden; width: 100vw; height: 100vh; }
+        body.taxameter-active #panel, body.taxameter-active .leaflet-control-container { display: none !important; }
+        
+        #taxameter-top-panel { display: none; }
+        body.taxameter-active #taxameter-top-panel {
+            display: flex; flex-direction: column; position: fixed; top: 0; left: 0; width: 100%; z-index: 9999; background: #111111; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        
+        .taxameter-destination-row {
+            background-color: var(--green-primary); color: white; padding: 12px; font-size: 18px; font-weight: bold; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .taxameter-controls-row {
+            display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background-color: #1f2937; border-bottom: 1px solid #374151;
+        }
+        
+        body.taxameter-active #nav-instruction-box { 
+            position: relative !important; top: 0 !important; left: 0 !important; transform: none !important; width: 100% !important; max-width: none !important; margin: 0 !important; border-radius: 0 !important; border-left: none !important; border-bottom: 4px solid var(--green-light); box-sizing: border-box; display: flex !important;
+        }
+        
+        body.taxameter-active #map {
+            position: fixed !important; bottom: 0 !important; left: 0 !important; width: 100vw !important; z-index: 1 !important;
+        }
     </style>
 </head>
 <body>
+
+<div id="taxameter-top-panel">
+    <div id="taxameter-destination-display" class="taxameter-destination-row">
+        Cíl: Načítání cíle...
+    </div>
+    <div class="taxameter-controls-row">
+        <span id="taxameter-status-text" style="font-weight: bold; color: var(--green-light);">TAXAMETR AKTIVNÍ</span>
+        <button id="btn-taxameter-stop-fullscreen" onclick="stopTaxameterRezim(); pauseFare();" style="background: #dc2626; color: white; border: none; padding: 8px 16px; border-radius: 5px; font-weight: bold; cursor: pointer; text-transform: uppercase;">
+            Stop Taxametr
+        </button>
+    </div>
+    <div id="maneuver-holder"></div>
+</div>
 
 <div id="receipt-modal" class="modal-overlay">
     <div class="modal-content">
@@ -411,7 +448,6 @@
     
     <div id="map"></div>
 
-    <!-- Plovoucí navigační panel se směrovými šipkami -->
     <div id="nav-instruction-box" style="display: none; position: absolute; top: 15px; left: 50%; transform: translateX(-50%); width: 85%; max-width: 360px; background: rgba(15, 23, 42, 0.95); color: white; padding: 12px 16px; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.4); z-index: 2000; align-items: center; gap: 14px; font-weight: 700; border-left: 6px solid var(--green-light); font-size: 15px; font-family: sans-serif; transition: all 0.3s ease;">
         <div id="nav-icon" style="font-size: 26px; color: var(--green-light); min-width: 30px; text-align: center;">↑</div>
         <div id="nav-text" style="flex: 1; line-height: 1.3;">Pokračujte po trase</div>
@@ -419,6 +455,60 @@
 </div>
 
 <script>
+    // --- FUNKCE PRO CELOOBRAZOVKOVÝ REŽIM ---
+    function spustTaxameterRezim() {
+        const docElm = document.documentElement;
+        if (docElm.requestFullscreen) docElm.requestFullscreen();
+        else if (docElm.webkitRequestFullscreen) docElm.webkitRequestFullscreen();
+        else if (docElm.mozRequestFullScreen) docElm.mozRequestFullScreen();
+        else if (docElm.msRequestFullscreen) docElm.msRequestFullscreen();
+
+        document.body.classList.add('taxameter-active');
+
+        const targetInput = document.getElementById('taxi-target-input');
+        const targetName = targetInput && targetInput.value ? targetInput.value : "Volná jízda";
+        document.getElementById('taxameter-destination-display').innerText = "Cíl: " + targetName;
+
+        const navBox = document.getElementById('nav-instruction-box');
+        if (navBox) {
+            document.getElementById('maneuver-holder').appendChild(navBox);
+        }
+
+        setTimeout(() => {
+            if (typeof map !== 'undefined') map.invalidateSize();
+            const panelHeight = document.getElementById('taxameter-top-panel').offsetHeight;
+            const mapElm = document.getElementById('map');
+            if (mapElm && panelHeight) {
+                mapElm.style.top = panelHeight + 'px';
+                mapElm.style.height = `calc(100vh - ${panelHeight}px)`;
+            }
+        }, 300);
+    }
+
+    function stopTaxameterRezim() {
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+        else if (document.msExitFullscreen) document.msExitFullscreen();
+
+        document.body.classList.remove('taxameter-active');
+        
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+
+        const navBox = document.getElementById('nav-instruction-box');
+        if (navBox) {
+            document.getElementById('app-container').appendChild(navBox);
+        }
+
+        setTimeout(() => {
+            if (typeof map !== 'undefined') {
+                const mapElm = document.getElementById('map');
+                if (mapElm) { mapElm.style.top = ''; mapElm.style.height = ''; }
+                map.invalidateSize();
+            }
+        }, 300);
+    }
+
     // --- WAKE LOCK API (NEZHASÍNÁNÍ DISPLEJE) ---
     let wakeLock = null;
     let isWakeLockRequested = false;
@@ -546,8 +636,11 @@
             spokenMilestones.m30 = true;
         }
         if (speechText !== "") {
+            window.speechSynthesis.cancel(); // Vymazání fronty pro okamžitý start
             let utterance = new SpeechSynthesisUtterance(speechText);
             utterance.lang = 'cs-CZ';
+            utterance.volume = 1.0; // Max hlasitost
+            utterance.rate = 1.0;
             window.speechSynthesis.speak(utterance);
         }
     }
@@ -1279,10 +1372,12 @@
     function updateTotalPriceDisplay() { const total = taxiBaseFare + (taxiDistanceKm * taxiCurrentRate) + taxiWaitCost; document.getElementById('taxi-led-price').innerText = total.toFixed(2); }
 
     function openTaximeter() { const dropoffValue = document.getElementById('dropoff').value; document.getElementById('taxi-target-input').value = dropoffValue; document.getElementById('taxi-setup').style.display = 'block'; document.getElementById('taxi-running').style.display = 'none'; showSection('section-taximeter'); }
+    
     function closeTaximeter() { 
         if (document.getElementById('taxi-running').style.display === 'block') { 
             alert("Nejprve vynulujte taxametr (tlačítko: Nové měření)!"); return; 
         } 
+        stopTaxameterRezim();
         showSection('section-app'); 
     }
 
@@ -1290,6 +1385,9 @@
         if (!navigator.geolocation) { alert("Váš prohlížeč nepodporuje GPS polohu."); return; }
         requestWakeLock();
         
+        // ZAPNUTÍ FULLSCREENU A NOVÉHO LAYOUTU
+        spustTaxameterRezim();
+
         const targetName = document.getElementById('taxi-target-input').value || "Nezadáno"; document.getElementById('taxi-display-target').innerText = targetName;
         taxiBaseFare = 20.00; taxiCurrentRate = ratePerKm; taxiDistanceKm = 0; taxiWaitSeconds = 0; taxiWaitCost = 0; taxiLastPosition = null; taxiLastMoveTime = Date.now();
         document.getElementById('taxi-led-tariff').innerText = tariffName.toUpperCase(); document.getElementById('taxi-led-rate-info').innerText = ratePerKm; document.getElementById('taxi-led-dist').innerText = "0.00"; document.getElementById('taxi-led-wait-time').innerText = "00:00"; document.getElementById('taxi-led-wait-cost').innerText = "0.00"; updateTotalPriceDisplay();
@@ -1381,6 +1479,7 @@
 
     function resumeFare() {
         requestWakeLock(); 
+        spustTaxameterRezim();
         taxiLastMoveTime = Date.now();
         taxiLastPosition = null; 
         
@@ -1404,6 +1503,7 @@
     }
 
     function resetFare() {
+        stopTaxameterRezim();
         releaseWakeLock();
         if (taxiWatchId) { navigator.geolocation.clearWatch(taxiWatchId); taxiWatchId = null; } 
         if (taxiWaitInterval) { clearInterval(taxiWaitInterval); taxiWaitInterval = null; } 
