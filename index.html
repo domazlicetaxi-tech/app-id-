@@ -1104,7 +1104,12 @@
     function updateTotalPriceDisplay() { const total = taxiBaseFare + (taxiDistanceKm * taxiCurrentRate) + taxiWaitCost; document.getElementById('taxi-led-price').innerText = total.toFixed(2); }
 
     function openTaximeter() { const dropoffValue = document.getElementById('dropoff').value; document.getElementById('taxi-target-input').value = dropoffValue; document.getElementById('taxi-setup').style.display = 'block'; document.getElementById('taxi-running').style.display = 'none'; showSection('section-taximeter'); }
-    function closeTaximeter() { if (taxiWatchId || taxiWaitInterval) { alert("Nejprve zastavte běžící taxametr!"); return; } showSection('section-app'); }
+    function closeTaximeter() { 
+    if (document.getElementById('taxi-running').style.display === 'block') { 
+        alert("Nejprve vynulujte taxametr (tlačítko: Nové měření)!"); return; 
+    } 
+    showSection('section-app'); 
+}
 
     async function startFare(tariffName, ratePerKm) {
         if (!navigator.geolocation) { alert("Váš prohlížeč nepodporuje GPS polohu."); return; }
