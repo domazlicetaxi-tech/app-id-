@@ -313,10 +313,15 @@
                     </div>
                 </div>
 
-                <div class="taxi-controls">
-                    <button class="btn-stop-taxi" onclick="stopFare()">Stop Taxametr</button>
-                    <button class="btn-print" onclick="printReceipt()">Tisk</button>
-                </div>
+                <div class="taxi-controls" id="taxi-controls-running">
+    <button class="btn-stop-taxi" onclick="pauseFare()" style="width: 100%;">Stop Taxametr</button>
+</div>
+
+<div class="taxi-controls" id="taxi-controls-paused" style="display: none; gap: 10px;">
+    <button onclick="resetFare()" style="flex: 1; background: #94a3b8; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: 900; font-size: 12px; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">Nové měření</button>
+    <button onclick="resumeFare()" style="flex: 1; background: var(--driver-blue); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: 900; font-size: 12px; text-transform: uppercase; cursor: pointer; box-shadow: 0 4px 6px rgba(37,99,235,0.3);">Pokračovat</button>
+    <button class="btn-print" onclick="printReceipt()" style="flex: 1;">Tisk</button>
+</div>
             </div>
         </div>
 
