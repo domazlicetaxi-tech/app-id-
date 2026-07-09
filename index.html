@@ -1154,14 +1154,62 @@ document.getElementById('taxi-controls-paused').style.display = 'none';
         if (activeOrderId && db && locationSharingActive) { db.collection("taxi_orders").doc(activeOrderId).update({ driverLat: currentPos.lat, driverLng: currentPos.lng }); }
     }
 
-    function stopFare() {
-        // UVOLNĚNÍ DISPLEJE
-        releaseWakeLock();
-        
-        if (taxiWatchId) { navigator.geolocation.clearWatch(taxiWatchId); taxiWatchId = null; } if (taxiWaitInterval) { clearInterval(taxiWaitInterval); taxiWaitInterval = null; } clearRoutes(); if (realtimeDriverMarker) { map.removeLayer(realtimeDriverMarker); realtimeDriverMarker = null; }
-        if (activeOrderId && db) { db.collection("taxi_orders").doc(activeOrderId).update({ status: "Dokončeno" }); activeOrderId = null; }
-        document.getElementById('btn-arrived-at-customer').style.display = 'none';
-    }
+    function pauseFare() {
+    releaseWakeLock(); // Zrušení zámku displeje během pauzy
+    
+    // Zastavení odečtů (GPS a interval čekání)
+    if (taxiWatchId) { navigator.geolocation.clearWatch(taxiWatchId); taxiWatchId = null; } 
+    if (taxiWaitInterval) { clearInterval(taxiWaitInterval); taxiWaitInterval = null; } 
+    
+    // Přepnutí tlačítek
+    document.getElementById('taxi-controls-running').style.display = 'none';
+    document.getElementById('taxi-controls-paused').style.display = 'flex';
+}
+
+function resumeFare() {
+    requestWakeLock(); // Obnovení zámku displeje
+    
+    // Reset klíčových proměnných brání skokovému přičtení vzdálenosti a času během pauzy
+    taxiLastMoveTime = Date.now();
+    taxiLastPosition = null; 
+    
+    // Opětovné spuštění odpočtu čekání (6 Kč/min)
+    taxiWaitInterval = setInterval(() => {
+        if (taxiLastMoveTime) { 
+            const idleTime = Date.now() - taxiLastMoveTime; 
+            if (idleTime > 60000) { 
+                taxiWaitSeconds++; 
+                taxiWaitCost = taxiWaitSeconds * 0.10; 
+                document.getElementById('taxi-led-wait-time').innerText = formatTime(taxiWaitSeconds); 
+                document.getElementById('taxi-led-wait-cost').innerText = taxiWaitCost.toFixed(2); 
+                updateTotalPriceDisplay(); 
+            } 
+        }
+    }, 1000);
+
+    // Opětovné spuštění GPS pro taxametr
+    taxiWatchId = navigator.geolocation.watchPosition(updateTaximeterGPS, (err) => { console.warn("Chyba GPS taxametru: " + err.message); }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 });
+    
+    // Přepnutí tlačítek zpět
+    document.getElementById('taxi-controls-running').style.display = 'flex';
+    document.getElementById('taxi-controls-paused').style.display = 'none';
+}
+
+function resetFare() {
+    // Provede úplný úklid a zakončí proces (původní logika stopFare)
+    releaseWakeLock();
+    if (taxiWatchId) { navigator.geolocation.clearWatch(taxiWatchId); taxiWatchId = null; } 
+    if (taxiWaitInterval) { clearInterval(taxiWaitInterval); taxiWaitInterval = null; } 
+    
+    clearRoutes(); 
+    if (realtimeDriverMarker) { map.removeLayer(realtimeDriverMarker); realtimeDriverMarker = null; }
+    if (activeOrderId && db) { db.collection("taxi_orders").doc(activeOrderId).update({ status: "Dokončeno" }); activeOrderId = null; }
+    document.getElementById('btn-arrived-at-customer').style.display = 'none';
+    
+    // Skrytí hardwaru taxametru a návrat k výběru sazeb
+    document.getElementById('taxi-running').style.display = 'none';
+    document.getElementById('taxi-setup').style.display = 'block';
+}
     
     function printReceipt() {
         const dName = localStorage.getItem('taxi_green_driver_name') || "Neznámý"; const fromPlace = document.getElementById('pickup').value || "Místo nakládky (GPS)"; const toPlace = document.getElementById('taxi-display-target').innerText;
