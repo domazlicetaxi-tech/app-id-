@@ -1120,7 +1120,10 @@
         const targetName = document.getElementById('taxi-target-input').value || "Nezadáno"; document.getElementById('taxi-display-target').innerText = targetName;
         taxiBaseFare = 20.00; taxiCurrentRate = ratePerKm; taxiDistanceKm = 0; taxiWaitSeconds = 0; taxiWaitCost = 0; taxiLastPosition = null; taxiLastMoveTime = Date.now();
         document.getElementById('taxi-led-tariff').innerText = tariffName.toUpperCase(); document.getElementById('taxi-led-rate-info').innerText = ratePerKm; document.getElementById('taxi-led-dist').innerText = "0.00"; document.getElementById('taxi-led-wait-time').innerText = "00:00"; document.getElementById('taxi-led-wait-cost').innerText = "0.00"; updateTotalPriceDisplay();
-        document.getElementById('taxi-setup').style.display = 'none'; document.getElementById('taxi-running').style.display = 'block';
+        document.getElementById('taxi-setup').style.display = 'none'; 
+document.getElementById('taxi-running').style.display = 'block';
+document.getElementById('taxi-controls-running').style.display = 'flex';
+document.getElementById('taxi-controls-paused').style.display = 'none';
 
         taxiWaitInterval = setInterval(() => {
             if (taxiLastMoveTime) { const idleTime = Date.now() - taxiLastMoveTime; if (idleTime > 60000) { taxiWaitSeconds++; taxiWaitCost = taxiWaitSeconds * 0.10; document.getElementById('taxi-led-wait-time').innerText = formatTime(taxiWaitSeconds); document.getElementById('taxi-led-wait-cost').innerText = taxiWaitCost.toFixed(2); updateTotalPriceDisplay(); } }
