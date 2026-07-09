@@ -30,7 +30,7 @@
 
         html, body { margin: 0; padding: 0; height: 100%; width: 100%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; }
         
-        #app-container { display: flex; height: 100dvh; width: 100vw; flex-direction: row; overflow: hidden; }
+        #app-container { display: flex; height: 100dvh; width: 100vw; flex-direction: row; overflow: hidden; position: relative; }
         #panel { width: 420px; height: 100%; background: white; box-shadow: 4px 0 15px rgba(0,0,0,0.1); z-index: 1000; display: flex; flex-direction: column; flex-shrink: 0; }
         
         .header { background: #0f172a; padding: 15px 20px; color: white; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; border-bottom: 4px solid var(--green-light); }
@@ -410,6 +410,12 @@
     </div>
     
     <div id="map"></div>
+
+    <!-- Plovoucí navigační panel se směrovými šipkami -->
+    <div id="nav-instruction-box" style="display: none; position: absolute; top: 15px; left: 50%; transform: translateX(-50%); width: 85%; max-width: 360px; background: rgba(15, 23, 42, 0.95); color: white; padding: 12px 16px; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.4); z-index: 2000; align-items: center; gap: 14px; font-weight: 700; border-left: 6px solid var(--green-light); font-size: 15px; font-family: sans-serif; transition: all 0.3s ease;">
+        <div id="nav-icon" style="font-size: 26px; color: var(--green-light); min-width: 30px; text-align: center;">↑</div>
+        <div id="nav-text" style="flex: 1; line-height: 1.3;">Pokračujte po trase</div>
+    </div>
 </div>
 
 <script>
@@ -456,16 +462,126 @@
     const iconDropoff = L.divIcon({ html: '<div style="font-size: 26px; text-shadow: 0 0 5px white;">🏁</div>', className: 'custom-map-icon', iconSize: [30, 30], iconAnchor: [15, 30] });
     const iconWaypoint = L.divIcon({ html: '<div style="font-size: 18px; text-shadow: 0 0 5px white;">🔵</div>', className: 'custom-map-icon', iconSize: [18, 18], iconAnchor: [9, 9] });
 
+    // Zmenšené zelené autíčko, které vypadá jako taxi s jasně definovanou přídí (světlomety)
     const greenCarIcon = L.divIcon({
-        html: `<div id="driver-car-icon" style="transition: transform 0.3s linear; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="40px" height="40px" style="filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.5));">
-                    <rect x="25" y="10" width="50" height="80" rx="12" fill="var(--green-light)" stroke="var(--green-dark)" stroke-width="4"/>
-                    <rect x="30" y="25" width="40" height="20" rx="4" fill="#0f172a"/>
-                    <rect x="30" y="60" width="40" height="15" rx="3" fill="#0f172a"/>
+        html: `<div id="driver-car-icon" style="transition: transform 0.4s ease-out; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="32px" height="32px" style="filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.4));">
+                    <polygon points="30,12 20,2 40,2" fill="#ffeb3b" opacity="0.6"/>
+                    <polygon points="70,12 60,2 80,2" fill="#ffeb3b" opacity="0.6"/>
+                    <path d="M25,30 L25,85 A8,8 0 0,0 33,93 L67,93 A8,8 0 0,0 75,85 L75,30 L65,12 L35,12 Z" fill="#22c55e" stroke="#14532d" stroke-width="4"/>
+                    <polygon points="35,32 65,32 60,18 40,18" fill="#1e293b"/>
+                    <rect x="35" y="70" width="30" height="12" rx="2" fill="#1e293b"/>
+                    <rect x="36" y="44" width="28" height="10" rx="2" fill="#ffeb3b" stroke="#000" stroke-width="1"/>
+                    <text x="50" y="52" font-size="7" font-weight="900" fill="#000" text-anchor="middle" font-family="sans-serif">TAXI</text>
                 </svg>
                </div>`,
-        className: 'driver-gps-marker', iconSize: [40, 40], iconAnchor: [20, 20]
+        className: 'driver-gps-marker', iconSize: [32, 32], iconAnchor: [16, 16]
     });
+
+    // --- POMOCNÉ PRVKY PRO PLYNULOU NAVIGACI A ODKLAD ZOOMU ---
+    let userInteractionTimer = null;
+    let isUserInteracting = false;
+    let bearingHistory = [];
+    let activeInstructions = [];
+    let lastInstructionIndex = -1;
+    let spokenMilestones = { m300: false, m100: false, m30: false };
+
+    // Výpočet stabilizovaného a plynulého směru jízdy pomocí klouzavého průměru (Sygic styl)
+    function getSmoothedBearing(newBearing) {
+        bearingHistory.push(newBearing);
+        if (bearingHistory.length > 6) bearingHistory.shift();
+        let sinSum = 0, cosSum = 0;
+        for (let b of bearingHistory) {
+            let rad = b * Math.PI / 180;
+            sinSum += Math.sin(rad);
+            cosSum += Math.cos(rad);
+        }
+        return (Math.atan2(sinSum, cosSum) * 180 / Math.PI + 360) % 360;
+    }
+
+    // Překlad příkazů do češtiny pro vizuální a mluvené pokyny
+    function translateInstruction(instr) {
+        let type = instr.type;
+        if (type === 'TurnRight' || type === 'Right') return "Odbočte vpravo";
+        if (type === 'TurnLeft' || type === 'Left') return "Odbočte vlevo";
+        if (type === 'SlightRight') return "Mírně vpravo";
+        if (type === 'SlightLeft') return "Mírně vlevo";
+        if (type === 'SharpRight') return "Ostrá vpravo";
+        if (type === 'SharpLeft') return "Ostrá vlevo";
+        if (type === 'Straight') return "Pokračujte rovně";
+        if (type === 'Roundabout') return "Na kruhovém objezdu";
+        if (type === 'DestinationReached') return "Dorazili jste do cíle";
+        let t = instr.text || "";
+        if (t.toLowerCase().includes('right')) return "Odbočte vpravo";
+        if (t.toLowerCase().includes('left')) return "Odbočte vlevo";
+        return "Pokračujte po trase";
+    }
+
+    // Výběr správné navigační šipky
+    function getInstructionIcon(type) {
+        if (type?.includes('Right')) return "➔";
+        if (type?.includes('Left')) return "⬅";
+        if (type?.includes('Straight')) return "↑";
+        if (type?.includes('Roundabout')) return "🔄";
+        if (type?.includes('Destination')) return "🏁";
+        return "↑";
+    }
+
+    // Řízení mluvených hlášení v češtině (300m, 100m, 30m předem)
+    function triggerVoiceAnnouncement(directionText, distance) {
+        if (!('speechSynthesis' in window)) return;
+        if (lastInstructionIndex !== directionText) {
+            lastInstructionIndex = directionText;
+            spokenMilestones = { m300: false, m100: false, m30: false };
+        }
+        let speechText = "";
+        if (distance <= 320 && distance > 240 && !spokenMilestones.m300) {
+            speechText = `Za tři sta metrů ${directionText.toLowerCase()}`;
+            spokenMilestones.m300 = true;
+        } else if (distance <= 120 && distance > 75 && !spokenMilestones.m100) {
+            speechText = `Za sto metrů ${directionText.toLowerCase()}`;
+            spokenMilestones.m100 = true;
+        } else if (distance <= 45 && distance > 15 && !spokenMilestones.m30) {
+            speechText = `Nyní ${directionText.toLowerCase()}`;
+            spokenMilestones.m30 = true;
+        }
+        if (speechText !== "") {
+            let utterance = new SpeechSynthesisUtterance(speechText);
+            utterance.lang = 'cs-CZ';
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+
+    // Aktualizace grafického a zvukového navigačního rozhraní
+    function updateNavigationInstructionsUI(currentPos, closestIdx) {
+        if (!activeInstructions || activeInstructions.length === 0) return;
+        let nextInstr = activeInstructions.find(instr => instr.index > closestIdx);
+        const box = document.getElementById('nav-instruction-box');
+        if (nextInstr && box) {
+            let turnLatLng = activeNavCoords[nextInstr.index];
+            if (turnLatLng) {
+                let distToTurn = currentPos.distanceTo(turnLatLng);
+                let roundedDist = Math.round(distToTurn);
+                let directionText = translateInstruction(nextInstr);
+                box.style.display = 'flex';
+                document.getElementById('nav-text').innerHTML = `Za ${roundedDist} m: <b>${directionText}</b>`;
+                document.getElementById('nav-icon').innerText = getInstructionIcon(nextInstr.type);
+                triggerVoiceAnnouncement(directionText, roundedDist);
+            }
+        } else if (box) {
+            box.style.display = 'flex';
+            document.getElementById('nav-text').innerText = "Blížíte se k cíli";
+            document.getElementById('nav-icon').innerText = "🏁";
+        }
+    }
+
+    function hideNavigationInstructionsUI() {
+        const box = document.getElementById('nav-instruction-box');
+        if (box) box.style.display = 'none';
+        activeInstructions = [];
+        lastInstructionIndex = -1;
+        spokenMilestones = { m300: false, m100: false, m30: false };
+    }
 
     // --- POMOCNÉ FUNKCE PRO ROTACI A OŘEZÁVÁNÍ TRASY ---
     let activeNavCoords = [];
@@ -492,6 +608,9 @@
         let remainingCoords = activeNavCoords.slice(closestIdx);
         remainingCoords.unshift(currentPos);
         activeNavPolyline.setLatLngs(remainingCoords);
+
+        // Spuštění výpočtu instrukcí na trase
+        updateNavigationInstructionsUI(currentPos, closestIdx);
     }
 
     // --- POMOCNÉ FUNKCE PRO ROUTING ---
@@ -1039,6 +1158,7 @@
                 document.getElementById('btn-stop-nav').style.display = 'none'; 
                 
                 map.stopLocate(); clearRoutes(); map.off('locationfound'); 
+                hideNavigationInstructionsUI();
                 
                 let dropoffVal = document.getElementById('dropoff').value;
                 if (dropoffVal) {
@@ -1064,27 +1184,34 @@
         document.getElementById('btn-nav-dropoff').style.display = 'none'; 
         document.getElementById('btn-stop-nav').style.display = 'block'; 
         
-        taxiLastPosition = null; // Reset pro výpočet směru
+        taxiLastPosition = null; 
         
         map.locate({ setView: true, maxZoom: 18, watch: true, enableHighAccuracy: true });
         map.on('locationfound', function(e) {
             
-            // 1. Rotace mapy
+            // 1. Pozvolná rotace mapy se stabilizací směru (Sygic styl)
             if (taxiLastPosition) {
-                lastKnownBearing = calculateBearing(taxiLastPosition.lat, taxiLastPosition.lng, e.latlng.lat, e.latlng.lng);
-                map.setBearing(lastKnownBearing);
+                let rawBearing = calculateBearing(taxiLastPosition.lat, taxiLastPosition.lng, e.latlng.lat, e.latlng.lng);
+                if (e.latlng.distanceTo(taxiLastPosition) > 2) {
+                    lastKnownBearing = getSmoothedBearing(rawBearing);
+                    if (!isUserInteracting) {
+                        map.setBearing(lastKnownBearing);
+                    }
+                }
                 const carIconEl = document.getElementById('driver-car-icon');
                 if (carIconEl) { carIconEl.style.transform = `rotate(${lastKnownBearing}deg)`; }
             }
             taxiLastPosition = e.latlng;
 
-            // 2. Vykreslení autíčka
+            // 2. Vykreslení autíčka (pokud řidič nestuduje mapu, centrujeme)
             if (realtimeDriverMarker) { 
                 realtimeDriverMarker.setLatLng(e.latlng); 
             } else { 
                 realtimeDriverMarker = L.marker(e.latlng, { icon: greenCarIcon, zIndexOffset: 1000 }).addTo(map); 
             } 
-            map.panTo(e.latlng);
+            if (!isUserInteracting) {
+                map.panTo(e.latlng);
+            }
 
             // 3. Routování (bez defaultní čáry) a vytvoření naší ořezávací polyline
             if (routingControls.length === 0) { 
@@ -1097,6 +1224,8 @@
                 
                 rc.on('routesfound', function(res) {
                     activeNavCoords = res.routes[0].coordinates;
+                    activeInstructions = res.routes[0].instructions || [];
+                    lastInstructionIndex = -1;
                     if (activeNavPolyline) map.removeLayer(activeNavPolyline);
                     activeNavPolyline = L.polyline(activeNavCoords, { color: '#2563eb', opacity: 0.9, weight: 7 }).addTo(map);
                 });
@@ -1189,6 +1318,8 @@
                 
                 rc.on('routesfound', function(res) {
                     activeNavCoords = res.routes[0].coordinates;
+                    activeInstructions = res.routes[0].instructions || [];
+                    lastInstructionIndex = -1;
                     if (activeNavPolyline) map.removeLayer(activeNavPolyline);
                     activeNavPolyline = L.polyline(activeNavCoords, { color: '#00FF00', opacity: 1, weight: 8 }).addTo(map);
                 });
@@ -1203,14 +1334,17 @@
         const currentPos = L.latLng(position.coords.latitude, position.coords.longitude); 
         if (accuracy > 30) return;
 
-        // ROTACE MAPY A AUTA PRO TAXAMETR
+        // Plynulá rotace mapy pro modul taxametru
         if (taxiLastPosition) {
             if (taxiLastPosition.distanceTo(currentPos) > 2) { 
-                lastKnownBearing = calculateBearing(taxiLastPosition.lat, taxiLastPosition.lng, currentPos.lat, currentPos.lng);
-                map.setBearing(lastKnownBearing); 
-                const carIconEl = document.getElementById('driver-car-icon');
-                if (carIconEl) { carIconEl.style.transform = `rotate(${lastKnownBearing}deg)`; }
+                let rawBearing = calculateBearing(taxiLastPosition.lat, taxiLastPosition.lng, currentPos.lat, currentPos.lng);
+                lastKnownBearing = getSmoothedBearing(rawBearing);
+                if (!isUserInteracting) {
+                    map.setBearing(lastKnownBearing); 
+                }
             }
+            const carIconEl = document.getElementById('driver-car-icon');
+            if (carIconEl) { carIconEl.style.transform = `rotate(${lastKnownBearing}deg)`; }
         }
         
         updateNavigationProgress(currentPos);
@@ -1231,7 +1365,9 @@
         if (realtimeDriverMarker) { realtimeDriverMarker.setLatLng(currentPos); } 
         else { realtimeDriverMarker = L.marker(currentPos, { icon: greenCarIcon, zIndexOffset: 1000 }).addTo(map); } 
         
-        map.panTo(currentPos);
+        if (!isUserInteracting) {
+            map.panTo(currentPos);
+        }
         if (activeOrderId && db && locationSharingActive) { db.collection("taxi_orders").doc(activeOrderId).update({ driverLat: currentPos.lat, driverLng: currentPos.lng }); }
     }
 
@@ -1273,7 +1409,8 @@
         if (taxiWaitInterval) { clearInterval(taxiWaitInterval); taxiWaitInterval = null; } 
         
         clearRoutes();
-        map.setBearing(0); // Srovnání mapy zpět severem nahoru
+        hideNavigationInstructionsUI();
+        map.setBearing(0); 
         
         if (realtimeDriverMarker) { map.removeLayer(realtimeDriverMarker); realtimeDriverMarker = null; }
         if (activeOrderId && db) { db.collection("taxi_orders").doc(activeOrderId).update({ status: "Dokončeno" }); activeOrderId = null; }
@@ -1294,6 +1431,18 @@
     const map = L.map('map', { zoomControl: false, rotate: true, touchRotate: true, bearing: 0 }).setView([49.4405, 12.9321], 14); 
     L.control.zoom({ position: 'topright' }).addTo(map); 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // Registrace manuálních gest na mapě pro dočasné vypnutí automatického sledování pozice a rotace
+    function handleUserInteraction() {
+        isUserInteracting = true;
+        clearTimeout(userInteractionTimer);
+        userInteractionTimer = setTimeout(() => {
+            isUserInteracting = false;
+        }, 10000); // 10 sekund na klidné nastudování a prohlédnutí trasy
+    }
+    map.getContainer().addEventListener('mousedown', handleUserInteraction);
+    map.getContainer().addEventListener('touchstart', handleUserInteraction);
+    map.getContainer().addEventListener('wheel', handleUserInteraction);
     
     let coordsData = { pickup: null, dropoff: null, waypoints: [] }; 
     let tempMarkers = L.layerGroup().addTo(map); 
@@ -1486,21 +1635,26 @@
         L.marker(coordsData.pickup, {icon: iconPickup}).addTo(tempMarkers).bindPopup("Jedu sem!").openPopup();
         locationSharingActive = true; 
         
-        taxiLastPosition = null; // Reset výpočtu pro novou trasu
+        taxiLastPosition = null; 
 
         map.locate({ setView: true, maxZoom: 18, watch: true, enableHighAccuracy: true });
         map.on('locationfound', function(e) {
             
-            // 1. Ošetření rotace
+            // 1. Pozvolná rotace mapy se stabilizací směru (Sygic styl)
             if (taxiLastPosition) {
-                lastKnownBearing = calculateBearing(taxiLastPosition.lat, taxiLastPosition.lng, e.latlng.lat, e.latlng.lng);
-                map.setBearing(lastKnownBearing); 
+                let rawBearing = calculateBearing(taxiLastPosition.lat, taxiLastPosition.lng, e.latlng.lat, e.latlng.lng);
+                if (e.latlng.distanceTo(taxiLastPosition) > 2) {
+                    lastKnownBearing = getSmoothedBearing(rawBearing);
+                    if (!isUserInteracting) {
+                        map.setBearing(lastKnownBearing); 
+                    }
+                }
                 const carIconEl = document.getElementById('driver-car-icon');
                 if (carIconEl) { carIconEl.style.transform = `rotate(${lastKnownBearing}deg)`; }
             }
             taxiLastPosition = e.latlng;
 
-            // 2. Vykreslení auta a routování (bez defaultní čáry)
+            // 2. Vykreslení auta a stabilní přesun mapy
             if (realtimeDriverMarker) { 
                 realtimeDriverMarker.setLatLng(e.latlng); 
             } else {
@@ -1514,6 +1668,8 @@
                 
                 rc.on('routesfound', function(res) {
                     activeNavCoords = res.routes[0].coordinates;
+                    activeInstructions = res.routes[0].instructions || [];
+                    lastInstructionIndex = -1;
                     if (activeNavPolyline) map.removeLayer(activeNavPolyline);
                     activeNavPolyline = L.polyline(activeNavCoords, { color: '#00FF00', opacity: 1, weight: 8 }).addTo(map);
 
@@ -1529,7 +1685,9 @@
 
                 routingControls.push(rc);
             } 
-            map.panTo(e.latlng);
+            if (!isUserInteracting) {
+                map.panTo(e.latlng);
+            }
             updateNavigationProgress(e.latlng);
 
             if (activeOrderId && db && locationSharingActive) { db.collection("taxi_orders").doc(activeOrderId).update({ driverLat: e.latlng.lat, driverLng: e.latlng.lng }); }
@@ -1541,8 +1699,9 @@
         locationSharingActive = false; map.stopLocate(); 
         if (realtimeDriverMarker) { map.removeLayer(realtimeDriverMarker); realtimeDriverMarker = null; }
         clearRoutes(); 
+        hideNavigationInstructionsUI();
         map.off('locationfound'); map.off('locationerror');
-        map.setBearing(0); // Srovná mapu zpět severem nahoru
+        map.setBearing(0); 
         resetActionButtons();
         map.setZoom(15);
     }
