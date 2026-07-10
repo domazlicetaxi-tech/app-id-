@@ -1882,7 +1882,7 @@
 
         try {
             // Aktualizace stavu v databázi pro zákazníka
-            await db.collection("orders").doc(currentPendingOrderId).update({
+            await db.collection("taxi_orders").doc(currentPendingOrderId).update({
                 status: "Na místě"
             });
             
