@@ -580,7 +580,7 @@
                     <text x="50" y="52" font-size="7" font-weight="900" fill="#000" text-anchor="middle" font-family="sans-serif">TAXI</text>
                 </svg>
                </div>`,
-        className: 'driver-gps-marker', iconSize: [32, 32], iconAnchor: [16, 16]
+        className: 'driver-gps-marker', iconSize: [32, 32], iconAnchor: [16, 6] // OPRAVENO: Posun čumáku auta přímo na linku
     });
 
     // --- POMOCNÉ PRVKY PRO PLYNULOU NAVIGACI A ODKLAD ZOOMU ---
@@ -602,6 +602,17 @@
             cosSum += Math.cos(rad);
         }
         return (Math.atan2(sinSum, cosSum) * 180 / Math.PI + 360) % 360;
+    }
+
+    // NOVÉ: Výpočet bodu předsazení před vozidlem pro perfektní Track-Up kameru
+    function getDestinationPoint(latlng, brng, dist) {
+        const d = dist / 6371; // Vzdálenost v radiánech (poloměr Země 6371 km)
+        const b = brng * (Math.PI / 180); 
+        const lat1 = latlng.lat * (Math.PI / 180);
+        const lon1 = latlng.lng * (Math.PI / 180);
+        const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(b));
+        const lon2 = lon1 + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
+        return L.latLng(lat2 * (180 / Math.PI), lon2 * (180 / Math.PI));
     }
 
     // Překlad příkazů do češtiny pro vizuální a mluvené pokyny
@@ -753,8 +764,18 @@
         });
     }
 
+    // --- INICIALIZACE FIREBASE S OFFLINE PERZISTENCÍ ---
     const firebaseConfig = { apiKey: "AIzaSyBU-wAdjtrC3wwkTulv432KfVVghnujYfg", authDomain: "kalkula-641ff.firebaseapp.com", projectId: "kalkula-641ff", storageBucket: "kalkula-641ff.firebasestorage.app", messagingSenderId: "126206326606", appId: "1:126206326606:web:2f391fa66e7f5bc54b901f" };
-    let db = null; try { firebase.initializeApp(firebaseConfig); db = firebase.firestore(); } catch (error) { console.error("Chyba Firebase:", error); }
+    let db = null; 
+    try { 
+        firebase.initializeApp(firebaseConfig); 
+        db = firebase.firestore(); 
+        db.enablePersistence().catch(function(err) {
+            console.warn("Offline databáze nelze aktivovat: ", err.code);
+        });
+    } catch (error) { 
+        console.error("Chyba Firebase:", error); 
+    }
 
     let clickCount = 0; let clickTimer = null;
     let locationSharingActive = false;
@@ -1325,14 +1346,16 @@
             }
             taxiLastPosition = e.latlng;
 
-            // 2. Vykreslení autíčka a přesun mapy
+            // 2. Vykreslení autíčka a přesun mapy (OPRAVA TRACK-UP KAMERY)
             if (realtimeDriverMarker) { 
                 realtimeDriverMarker.setLatLng(e.latlng); 
             } else { 
                 realtimeDriverMarker = L.marker(e.latlng, { icon: greenCarIcon, zIndexOffset: 1000 }).addTo(map); 
             } 
             if (!isUserInteracting) {
-                map.panTo(e.latlng, { animate: true, duration: 0.5 });
+                // Kamera se dívá 150 metrů (0.15 km) před auto
+                let centerPoint = getDestinationPoint(e.latlng, lastKnownBearing || map.getBearing() || 0, 0.15);
+                map.panTo(centerPoint, { animate: true, duration: 0.5 });
             }
 
             // 3. Routování (bez defaultní čáry) a vytvoření naší ořezávací polyline
@@ -1508,7 +1531,9 @@
         else { realtimeDriverMarker = L.marker(currentPos, { icon: greenCarIcon, zIndexOffset: 1000 }).addTo(map); } 
         
         if (!isUserInteracting) {
-            map.panTo(currentPos, { animate: true, duration: 0.5 });
+            // Kamera se dívá 150 metrů (0.15 km) před auto (OPRAVA TRACK-UP)
+            let centerPoint = getDestinationPoint(currentPos, lastKnownBearing || map.getBearing() || 0, 0.15);
+            map.panTo(centerPoint, { animate: true, duration: 0.5 });
         }
         if (activeOrderId && db && locationSharingActive) { db.collection("taxi_orders").doc(activeOrderId).update({ driverLat: currentPos.lat, driverLng: currentPos.lng }); }
     }
@@ -1807,7 +1832,7 @@
             }
             taxiLastPosition = e.latlng;
 
-            // 2. Vykreslení auta a stabilní přesun mapy
+            // 2. Vykreslení auta a stabilní přesun mapy (OPRAVA TRACK-UP)
             if (realtimeDriverMarker) { 
                 realtimeDriverMarker.setLatLng(e.latlng); 
             } else {
@@ -1839,7 +1864,9 @@
                 routingControls.push(rc);
             } 
             if (!isUserInteracting) {
-                map.panTo(e.latlng, { animate: true, duration: 0.5 });
+                // Kamera se dívá 150 metrů (0.15 km) před auto
+                let centerPoint = getDestinationPoint(e.latlng, lastKnownBearing || map.getBearing() || 0, 0.15);
+                map.panTo(centerPoint, { animate: true, duration: 0.5 });
             }
             updateNavigationProgress(e.latlng);
 
@@ -1862,7 +1889,7 @@
     function addWaypoint() {
         const idx = coordsData.waypoints.length; coordsData.waypoints.push(null); const container = document.getElementById('waypoints-container');
         const div = document.createElement('div'); div.className = 'input-row'; div.id = `wp-row-${idx}`;
-        div.innerHTML = `<div class="input-wrapper"><input type="text" id="wp-${idx}" placeholder="Průjezdný bod..." autocomplete="off" oninput="resetActionButtons()"><div id="wp-list-${idx}" class="autocomplete-list"></div></div><button class="btn-map-pick" onclick="startMafunction resetFare()pSelection('waypoint', 'wp-${idx}', ${idx}, event)">📍</button><button class="btn-map-pick" style="background:var(--danger-red); color:white; border-color:transparent;" onclick="removeWaypoint(${idx})">✕</button>`;
+        div.innerHTML = `<div class="input-wrapper"><input type="text" id="wp-${idx}" placeholder="Průjezdný bod..." autocomplete="off" oninput="resetActionButtons()"><div id="wp-list-${idx}" class="autocomplete-list"></div></div><button class="btn-map-pick" onclick="startMapSelection('waypoint', 'wp-${idx}', ${idx}, event)">📍</button><button class="btn-map-pick" style="background:var(--danger-red); color:white; border-color:transparent;" onclick="removeWaypoint(${idx})">✕</button>`;
         container.appendChild(div); setupAutocomplete(`wp-${idx}`, `wp-list-${idx}`, 'waypoint', idx);
         resetActionButtons();
     }
@@ -1871,33 +1898,6 @@
         document.getElementById(`wp-row-${idx}`).remove(); 
         coordsData.waypoints[idx] = null; 
         resetActionButtons();
-    }
-// FUNKCE PRO TLAČÍTKO "JSEM U ZÁKAZNÍKA"
-    async function confirmArrivalAtCustomer() {
-        // Kontrola, zda máme ID objednávky
-        if (typeof currentPendingOrderId === 'undefined' || !currentPendingOrderId) {
-            alert("Chyba: Není aktivní žádná objednávka!");
-            return;
-        }
-
-        try {
-            // Aktualizace stavu v databázi pro zákazníka
-            await db.collection("taxi_orders").doc(currentPendingOrderId).update({
-                status: "Na místě"
-            });
-            
-            // Potvrzení pro řidiče
-            alert("Informace o příjezdu odeslána zákazníkovi.");
-            
-            // Skrytí tlačítka po kliknutí
-            const btn = document.getElementById('btn-arrived-at-customer');
-            if (btn) {
-                btn.style.display = 'none';
-            }
-        } catch (error) {
-            console.error("Chyba při aktualizaci stavu:", error);
-            alert("Nepodařilo se odeslat informaci. Zkontrolujte připojení k internetu.");
-        }
     }
 </script>
 </body>
