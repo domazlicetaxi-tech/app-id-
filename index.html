@@ -444,6 +444,18 @@
 </div>
 
 <script>
+    // --- Globální nastavení pro mapu ---
+let userInteractionTimer;
+let isUserInteracting = false;
+
+function handleUserInteraction() {
+    isUserInteracting = true;
+    if (userInteractionTimer) clearTimeout(userInteractionTimer);
+    userInteractionTimer = setTimeout(() => {
+        isUserInteracting = false;
+    }, 10000); // 10 vteřin nečinnosti
+}
+// -----------------------------------
     // --- VYNUCENÍ FULLSCREENU PO KLIKNUTÍ (Nesmí se zrušit) ---
     function enforceFullscreen() {
         const docElm = document.documentElement;
@@ -1152,33 +1164,7 @@
 
         let pLat = currentEditingOrder.pickupLat || currentEditingOrder.lat || currentEditingOrder.latitude; let pLng = currentEditingOrder.pickupLng || currentEditingOrder.lng || currentEditingOrder.lon || currentEditingOrder.longitude;
 
-        if (pLat && pLng) {
-            let customerLoc = L.latLng(pLat, pLng); coordsData.pickup = customerLoc; L.marker(customerLoc, {icon: iconPickup}).addTo(tempMarkers).bindPopup("📍 Zákazník čeká přesně zde").openPopup(); map.setView(customerLoc, 16);
-            if (currentEditingOrder.dropoff) {
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(currentEditingOrder.dropoff)}&countrycodes=cz`).then(res => res.json()).then(data => {
-                    if(data && data.length > 0) { 
-                        coordsData.dropoff = L.latLng(data[0].lat, data[0].lon); 
-                        let rc = L.Routing.control({
-                            waypoints: [createWaypoint(customerLoc), createWaypoint(coordsData.dropoff)],
-                            router: getRouter(2),
-                            routeWhileDragging: true,
-                            lineOptions: { styles: [{ color: '#2563eb', opacity: 0.8, weight: 6 }] },
-                            show: false,
-                            addWaypoints: false
-                        }).addTo(map);
-                        routingControls.push(rc);
-                    }
-                });
-            }
-        } else if (currentEditingOrder.pickup) {
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(currentEditingOrder.pickup)}&countrycodes=cz`).then(res => res.json()).then(data => {
-                if(data && data.length > 0) { let customerLoc = L.latLng(data[0].lat, data[0].lon); coordsData.pickup = customerLoc; L.marker(customerLoc, {icon: iconPickup}).addTo(tempMarkers).bindPopup("📍 Místo nástupu dle adresy").openPopup(); map.setView(customerLoc, 16); }
-            });
-        }
-        showSection('section-order-detail');
-    }
-
-    function confirmOrder() {
+function confirmOrder() {
         if(!currentEditingOrder) return;
         
         const vehicleId = localStorage.getItem('taxi_green_vehicle_id');
@@ -1192,6 +1178,9 @@
             return;
         }
         
+        // PŘIDÁNO: Sledování dotyku na mapě
+        map.on('movestart', handleUserInteraction);
+
         let extraTime = parseInt(document.getElementById('detail-extra-time').value) || 0;
         activeOrderId = currentEditingOrder.id;
 
@@ -1205,29 +1194,33 @@
             status: "Potvrzeno",
             extraTime: extraTime,
             driverName: firstName,
-            driverCar: vModel,     // Změněno z vehicleModel
-            driverSpz: vPlate,     // Změněno z vehiclePlate
+            driverCar: vModel,
+            driverSpz: vPlate,
             vehicleIndex: vIndex 
         });
 
         document.getElementById('pickup').value = currentEditingOrder.pickup;
         document.getElementById('dropoff').value = currentEditingOrder.dropoff || '';
         
-        alert(`Objednávka potvrzena!\n\nZákazník uvidí, že pro něj jede řidič ${firstName} s vozem ${vModel} [${vPlate}]. Výpočet dojezdového času začne ihned.`);
+        alert(`Objednávka potvrzena!\n\nZákazník uvidí, že pro něj jede řidič ${firstName} s vozem ${vModel} [${vPlate}].`);
         showSection('section-app');
         document.getElementById('btn-arrived-at-customer').style.display = 'block';
 
         let pLat = currentEditingOrder.pickupLat || currentEditingOrder.lat || currentEditingOrder.latitude;
         let pLng = currentEditingOrder.pickupLng || currentEditingOrder.lng || currentEditingOrder.lon || currentEditingOrder.longitude;
 
-        if (pLat && pLng) { coordsData.pickup = L.latLng(pLat, pLng); dispatchVehicle(); } else {
+        if (pLat && pLng) { 
+            coordsData.pickup = L.latLng(pLat, pLng); 
+            dispatchVehicle(); 
+        } else {
             fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(currentEditingOrder.pickup)}&countrycodes=cz`).then(res => res.json()).then(data => {
                 if(data && data.length > 0) { coordsData.pickup = L.latLng(data[0].lat, data[0].lon); dispatchVehicle(); }
             });
         }
-        if (currentEditingOrder.dropoff) { fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(currentEditingOrder.dropoff)}&countrycodes=cz`).then(res => res.json()).then(data => { if(data && data.length > 0) coordsData.dropoff = L.latLng(data[0].lat, data[0].lon); }); }
+        if (currentEditingOrder.dropoff) { 
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(currentEditingOrder.dropoff)}&countrycodes=cz`).then(res => res.json()).then(data => { if(data && data.length > 0) coordsData.dropoff = L.latLng(data[0].lat, data[0].lon); }); 
+        }
     }
-
     function resumeOrder() {
         if(!currentEditingOrder) return;
         activeOrderId = currentEditingOrder.id;
@@ -1599,7 +1592,7 @@
     const map = L.map('map', { zoomControl: false, rotate: true, touchRotate: true, bearing: 0 }).setView([49.4405, 12.9321], 14); 
     L.control.zoom({ position: 'topright' }).addTo(map); 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
+    map.on('movestart', handleUserInteraction);
     function handleUserInteraction() {
         isUserInteracting = true;
         clearTimeout(userInteractionTimer);
