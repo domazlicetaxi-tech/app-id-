@@ -594,7 +594,7 @@
     // Výpočet stabilizovaného a plynulého směru jízdy pomocí klouzavého průměru (Sygic styl)
     function getSmoothedBearing(newBearing) {
         bearingHistory.push(newBearing);
-        if (bearingHistory.length > 6) bearingHistory.shift();
+        if (bearingHistory.length > 15) bearingHistory.shift(); // Zvýšeno na 15 pro vyhlazenější otáčení mapy
         let sinSum = 0, cosSum = 0;
         for (let b of bearingHistory) {
             let rad = b * Math.PI / 180;
@@ -1313,8 +1313,7 @@
                     let currentMapBearing = map.getBearing() || 0;
                     let iconRotation = rawBearing - currentMapBearing;
                     iconRotation = ((iconRotation + 540) % 360) - 180;
-                    iconRotation = Math.max(-25, Math.min(25, iconRotation)); // Mírný "wiggle" efekt 
-
+                    
                     const carIconEl = document.getElementById('driver-car-icon');
                     if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
                 } else {
@@ -1479,7 +1478,6 @@
                 let currentMapBearing = map.getBearing() || 0;
                 let iconRotation = rawBearing - currentMapBearing;
                 iconRotation = ((iconRotation + 540) % 360) - 180;
-                iconRotation = Math.max(-25, Math.min(25, iconRotation));
 
                 const carIconEl = document.getElementById('driver-car-icon');
                 if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
@@ -1796,7 +1794,6 @@
                     let currentMapBearing = map.getBearing() || 0;
                     let iconRotation = rawBearing - currentMapBearing;
                     iconRotation = ((iconRotation + 540) % 360) - 180;
-                    iconRotation = Math.max(-25, Math.min(25, iconRotation));
 
                     const carIconEl = document.getElementById('driver-car-icon');
                     if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
@@ -1862,7 +1859,7 @@
     function addWaypoint() {
         const idx = coordsData.waypoints.length; coordsData.waypoints.push(null); const container = document.getElementById('waypoints-container');
         const div = document.createElement('div'); div.className = 'input-row'; div.id = `wp-row-${idx}`;
-        div.innerHTML = `<div class="input-wrapper"><input type="text" id="wp-${idx}" placeholder="Průjezdný bod..." autocomplete="off" oninput="resetActionButtons()"><div id="wp-list-${idx}" class="autocomplete-list"></div></div><button class="btn-map-pick" onclick="startMafunction resetFare()pSelection('waypoint', 'wp-${idx}', ${idx}, event)">📍</button><button class="btn-map-pick" style="background:var(--danger-red); color:white; border-color:transparent;" onclick="removeWaypoint(${idx})">✕</button>`;
+        div.innerHTML = `<div class="input-wrapper"><input type="text" id="wp-${idx}" placeholder="Průjezdný bod..." autocomplete="off" oninput="resetActionButtons()"><div id="wp-list-${idx}" class="autocomplete-list"></div></div><button class="btn-map-pick" onclick="startMapSelection('waypoint', 'wp-${idx}', ${idx}, event)">📍</button><button class="btn-map-pick" style="background:var(--danger-red); color:white; border-color:transparent;" onclick="removeWaypoint(${idx})">✕</button>`;
         container.appendChild(div); setupAutocomplete(`wp-${idx}`, `wp-list-${idx}`, 'waypoint', idx);
         resetActionButtons();
     }
@@ -1871,33 +1868,6 @@
         document.getElementById(`wp-row-${idx}`).remove(); 
         coordsData.waypoints[idx] = null; 
         resetActionButtons();
-    }
-// FUNKCE PRO TLAČÍTKO "JSEM U ZÁKAZNÍKA"
-    async function confirmArrivalAtCustomer() {
-        // Kontrola, zda máme ID objednávky
-        if (typeof currentPendingOrderId === 'undefined' || !currentPendingOrderId) {
-            alert("Chyba: Není aktivní žádná objednávka!");
-            return;
-        }
-
-        try {
-            // Aktualizace stavu v databázi pro zákazníka
-            await db.collection("taxi_orders").doc(currentPendingOrderId).update({
-                status: "Na místě"
-            });
-            
-            // Potvrzení pro řidiče
-            alert("Informace o příjezdu odeslána zákazníkovi.");
-            
-            // Skrytí tlačítka po kliknutí
-            const btn = document.getElementById('btn-arrived-at-customer');
-            if (btn) {
-                btn.style.display = 'none';
-            }
-        } catch (error) {
-            console.error("Chyba při aktualizaci stavu:", error);
-            alert("Nepodařilo se odeslat informaci. Zkontrolujte připojení k internetu.");
-        }
     }
 </script>
 </body>
