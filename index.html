@@ -1320,10 +1320,11 @@
             locationSharingActive = false; 
             releaseWakeLock();
 
+            // OPRAVA: Nemážeme driverLat a driverLng, aby zákaznické aplikaci nezmizelo auto, 
+            // ale pouze nastavíme, že řidič dorazil a ETA je 0.
             db.collection("taxi_orders").doc(activeOrderId).update({ 
                 driverArrived: true, 
-                driverLat: firebase.firestore.FieldValue.delete(), 
-                driverLng: firebase.firestore.FieldValue.delete() 
+                eta: 0 
             }).then(() => {
                 document.getElementById('btn-arrived-at-customer').style.display = 'none';
                 document.getElementById('btn-stop-nav').style.display = 'none'; 
@@ -1333,10 +1334,10 @@
                 
                 let dropoffVal = document.getElementById('dropoff').value;
                 if (dropoffVal) {
-                    alert("Zákazník byl informován o přistavení. Sledování polohy pro zákazníka bylo vypnuto.");
+                    alert("Zákazník byl informován o přistavení.");
                     document.getElementById('btn-nav-dropoff').style.display = 'block';
                 } else {
-                    alert("Úspěšně přistaveno k zákazníkovi.\nZákaznická aplikace byla odpojena ze sledování. Aplikace je nyní uvolněna.");
+                    alert("Úspěšně přistaveno k zákazníkovi.\nAplikace je nyní uvolněna.");
                     resetActionButtons();
                 }
             }).catch(err => alert("Chyba při odesílání: " + err.message));
