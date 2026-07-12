@@ -1325,7 +1325,6 @@
             db.collection("taxi_orders").doc(activeOrderId).update({ 
                 driverArrived: true, 
                 eta: 0 
-                status: "Na místě" // <-- TENTO ŘÁDEK DOPLŇTE
             }).then(() => {
                 document.getElementById('btn-arrived-at-customer').style.display = 'none';
                 document.getElementById('btn-stop-nav').style.display = 'none'; 
