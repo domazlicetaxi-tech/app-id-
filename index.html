@@ -357,8 +357,16 @@
             </div>
         </div>
 
-        <div id="section-admin" class="panel-content">
+        <!-- NOVÉ MENU ADMINISTRACE -->
+        <div id="section-admin-menu" class="panel-content">
             <button class="btn-action" onclick="closeAdmin()" style="margin-bottom:15px; background:#64748b; margin-top: 0;">⬅ Zpět do aplikace</button>
+            <div class="admin-title" style="margin-top: 20px; font-size: 16px;">Hlavní administrace systému</div>
+            <button class="btn-action" onclick="openAdminEvidence()" style="background:var(--driver-blue); padding: 16px; font-size: 15px; margin-top: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">📋 Evidence řidičů a vozidel</button>
+        </div>
+
+        <div id="section-admin" class="panel-content">
+            <!-- Návratové tlačítko z evidence nyní vede zpět do admin menu -->
+            <button class="btn-action" onclick="showSection('section-admin-menu')" style="margin-bottom:15px; background:#64748b; margin-top: 0;">⬅ Zpět do menu administrace</button>
             
             <div class="admin-title">Evidence řidičů - Nový řidič</div>
             <div style="margin-bottom: 15px;">
@@ -767,19 +775,25 @@
     let locationSharingActive = false;
     window.addEventListener('DOMContentLoaded', () => { checkLoginStatus(); });
 
+    // --- UPRAVENÁ FUNKCE PRO OTEVŘENÍ ADMIN MENU (MÍSTO ROVNOU EVIDENCE) ---
     function handleAdminClick() {
         enforceFullscreen();
         clickCount++; clearTimeout(clickTimer); clickTimer = setTimeout(() => { clickCount = 0; }, 400);
         if (clickCount >= 5) { 
             clickCount = 0; 
             if (prompt("Zadejte administrátorské heslo:") === "26 3654") { 
-                showSection('section-admin'); 
-                loadDriversList();
-                loadVehiclesList();
+                showSection('section-admin-menu'); 
             } else { 
                 alert("Neplatné heslo."); 
             } 
         }
+    }
+
+    // --- NOVÁ FUNKCE PRO SPRAVNOU INICIALIZACI A NAČTENÍ EVIDENCE Z MENU ---
+    function openAdminEvidence() {
+        showSection('section-admin');
+        loadDriversList();
+        loadVehiclesList();
     }
 
     function showSection(sectionId) {
@@ -1654,236 +1668,230 @@
         if (taxiWatchId) { navigator.geolocation.clearWatch(taxiWatchId); taxiWatchId = null; } 
         if (taxiWaitInterval) { clearInterval(taxiWaitInterval); taxiWaitInterval = null; } 
         
-        clearRoutes();
-        hideNavigationInstructionsUI();
-        map.setBearing(0); 
+        taxiBaseFare = 20; taxiDistanceKm = 0; taxiWaitSeconds = 0; taxiWaitCost = 0; taxiLastPosition = null;
+        document.getElementById('taxi-target-input').value = ""; document.getElementById('taxi-display-target').innerText = "Nezadáno"; coordsData.dropoff = null; clearRoutes();
         
-        if (realtimeDriverMarker) { map.removeLayer(realtimeDriverMarker); realtimeDriverMarker = null; }
-        if (activeOrderId && db) { db.collection("taxi_orders").doc(activeOrderId).update({ status: "Dokončeno" }); activeOrderId = null; }
-        document.getElementById('btn-arrived-at-customer').style.display = 'none';
-        
-        document.getElementById('taxi-running').style.display = 'none';
         document.getElementById('taxi-setup').style.display = 'block';
+        document.getElementById('taxi-running').style.display = 'none';
     }
-    
+
     function printReceipt() {
-        const dName = localStorage.getItem('taxi_green_driver_name') || "Neznámý"; const fromPlace = document.getElementById('pickup').value || "Místo nakládky (GPS)"; const toPlace = document.getElementById('taxi-display-target').innerText;
-        let total = parseFloat(document.getElementById('taxi-led-price').innerText); let waitCost = parseFloat(document.getElementById('taxi-led-wait-cost').innerText); let fare = (total - waitCost).toFixed(2);
-        document.getElementById('rec-driver').innerText = dName; document.getElementById('rec-from').innerText = fromPlace; document.getElementById('rec-to').innerText = toPlace; document.getElementById('rec-fare').innerText = fare; document.getElementById('rec-wait').innerText = waitCost.toFixed(2); document.getElementById('rec-total').innerText = total.toFixed(2); document.getElementById('receipt-modal').style.display = 'flex';
+        const dName = localStorage.getItem('taxi_green_driver_name') || "Neznámý řidič";
+        const dModel = localStorage.getItem('taxi_green_vehicle_model') || "-";
+        const dPlate = localStorage.getItem('taxi_green_vehicle_plate') || "-";
+        
+        const fText = document.getElementById('pickup').value || "Nezadáno";
+        const tText = document.getElementById('taxi-display-target').innerText || "Nezadáno";
+        const wCost = taxiWaitCost.toFixed(2);
+        const fareOnly = (taxiBaseFare + (taxiDistanceKm * taxiCurrentRate)).toFixed(2);
+        const total = (parseFloat(fareOnly) + parseFloat(wCost)).toFixed(2);
+        
+        document.getElementById('rec-driver').innerText = `${dName} (${dModel}, ${dPlate})`;
+        document.getElementById('rec-from').innerText = fText;
+        document.getElementById('rec-to').innerText = tText;
+        document.getElementById('rec-fare').innerText = fareOnly;
+        document.getElementById('rec-wait').innerText = wCost;
+        document.getElementById('rec-total').innerText = total;
+        
+        document.getElementById('receipt-modal').style.display = 'flex';
     }
-    function executePrint() { window.print(); document.getElementById('receipt-modal').style.display = 'none'; }
 
-    const BASE_ADDRESS = "Msgre. B. Staška 76, Domažlice"; let baseCoords = L.latLng(49.440478, 12.932068); let currentMode = 'mimo'; 
-    const map = L.map('map', { zoomControl: false, rotate: true, touchRotate: true, bearing: 0 }).setView([49.4405, 12.9321], 14); 
-    L.control.zoom({ position: 'topright' }).addTo(map); 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    function handleUserInteraction() {
-        isUserInteracting = true;
-        clearTimeout(userInteractionTimer);
-        userInteractionTimer = setTimeout(() => {
-            isUserInteracting = false;
-        }, 10000); 
+    function executePrint() {
+        document.getElementById('receipt-modal').style.display = 'none';
+        window.print();
     }
-    map.getContainer().addEventListener('mousedown', handleUserInteraction);
-    map.getContainer().addEventListener('touchstart', handleUserInteraction);
-    map.getContainer().addEventListener('wheel', handleUserInteraction);
+
+    // --- LOGIKA PRO DISPEČINK A VÝPOČTY (BEZE ZMĚNY) ---
+    let map = L.map('map', { rotate: true, touchZoom: true, zoomControl: false }).setView([49.4398, 12.9304], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
     
-    let coordsData = { pickup: null, dropoff: null, waypoints: [] }; 
-    let tempMarkers = L.layerGroup().addTo(map); 
-    let routingControls = []; 
-    let routingControl = null; 
-    let activeSelection = null; 
+    let tempMarkers = L.layerGroup().addTo(map);
+    let routingControls = [];
+    let coordsData = { pickup: null, dropoff: null, waypoints: [] };
+    let rateSetting = 'mimo';
+    let baseRate = 20; let ratePerKm = 26;
     let realtimeDriverMarker = null;
-    let etaUpdated = false;
 
-    function clearRoutes() {
-        if (routingControls && routingControls.length > 0) {
-            routingControls.forEach(rc => { if(rc) map.removeControl(rc); });
-            routingControls = [];
+    map.on('mousedown touchstart', () => { isUserInteracting = true; clearTimeout(userInteractionTimer); });
+    map.on('mouseup touchend', () => { userInteractionTimer = setTimeout(() => { isUserInteracting = false; }, 3000); });
+
+    function changeMode(mode) {
+        rateSetting = mode;
+        document.querySelectorAll('.btn-mode').forEach(el => el.classList.remove('active'));
+        document.getElementById(`mode-${mode}`).classList.add('active');
+        if(mode === 'mimo') { baseRate = 20; ratePerKm = 26; } else { baseRate = 20; ratePerKm = 34; }
+        if (coordsData.pickup && coordsData.dropoff) calculateRoute();
+    }
+
+    let searchTimeout = null;
+    function setupAutocomplete(inputId, listId) {
+        const input = document.getElementById(inputId); const list = document.getElementById(listId);
+        input.addEventListener('input', function() {
+            clearTimeout(searchTimeout); list.innerHTML = '';
+            if (this.value.length < 3) return;
+            searchTimeout = setTimeout(() => {
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(this.value)}&countrycodes=cz&limit=5`)
+                .then(res => res.json()).then(data => {
+                    list.innerHTML = '';
+                    data.forEach(item => {
+                        let div = document.createElement('div'); div.className = 'autocomplete-item'; div.innerText = item.display_name;
+                        div.onclick = () => { input.value = item.display_name; list.innerHTML = ''; }; list.appendChild(div);
+                    });
+                });
+            }, 500);
+        });
+        document.addEventListener('click', (e) => { if (e.target !== input) list.innerHTML = ''; });
+    }
+    setupAutocomplete('pickup', 'pickup-list'); setupAutocomplete('dropoff', 'dropoff-list'); setupAutocomplete('taxi-target-input', 'taxi-target-list');
+
+    let isMapPicking = false; let activePickTarget = null; let activePickInput = null; let activePickIndex = null;
+    
+    function startMapSelection(targetType, inputId, index = null, event) {
+        event.stopPropagation();
+        isMapPicking = true; activePickTarget = targetType; activePickInput = inputId; activePickIndex = index;
+        document.querySelectorAll('.btn-map-pick').forEach(btn => btn.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        alert("Nyní klikněte na mapu pro výběr místa.");
+        
+        if (window.innerWidth <= 768) {
+            document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
         }
-        if (routingControl) {
-            map.removeControl(routingControl);
-            routingControl = null;
-        }
-        if (activeNavPolyline) { 
-            map.removeLayer(activeNavPolyline); 
-            activeNavPolyline = null; 
-        }
-        activeNavCoords = [];
+    }
+
+    map.on('click', function(e) {
+        if(!isMapPicking) return;
+        const lat = e.latlng.lat; const lng = e.latlng.lng; const inputEl = document.getElementById(activePickInput);
+        
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+        .then(res => res.json()).then(data => {
+            const addr = data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+            if (inputEl) { inputEl.value = addr; resetActionButtons(); }
+
+            if (activePickTarget === 'pickup') { coordsData.pickup = e.latlng;
+            } else if (activePickTarget === 'dropoff') { coordsData.dropoff = e.latlng;
+            } else if (activePickTarget === 'taxitarget') { coordsData.dropoff = e.latlng; document.getElementById('taxi-display-target').innerText = addr;
+            } else if (activePickTarget === 'waypoint' && activePickIndex !== null) { coordsData.waypoints[activePickIndex] = { latlng: e.latlng, addr: addr }; }
+
+            isMapPicking = false; activePickTarget = null; activePickInput = null; activePickIndex = null;
+            document.querySelectorAll('.btn-map-pick').forEach(btn => btn.classList.remove('active'));
+            redrawTempMarkers();
+            
+            if (window.innerWidth <= 768) {
+                document.getElementById('panel').scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    });
+
+    function redrawTempMarkers() {
+        tempMarkers.clearLayers();
+        if (coordsData.pickup) L.marker(coordsData.pickup, {icon: iconPickup}).addTo(tempMarkers);
+        if (coordsData.dropoff) L.marker(coordsData.dropoff, {icon: iconDropoff}).addTo(tempMarkers);
+        coordsData.waypoints.forEach((wp, idx) => { if (wp.latlng) L.marker(wp.latlng, {icon: iconWaypoint}).addTo(tempMarkers).bindTooltip(`Průjezd ${idx+1}`, {permanent: true, direction: 'right'}); });
+    }
+
+    function addWaypoint() {
+        const container = document.getElementById('waypoints-container'); const idx = coordsData.waypoints.length;
+        coordsData.waypoints.push({ latlng: null, addr: '' });
+        
+        const div = document.createElement('div'); div.className = 'input-row'; div.id = `wp-row-${idx}`;
+        div.innerHTML = `
+            <div class="input-wrapper">
+                <input type="text" id="wp-input-${idx}" placeholder="Průjezdní bod ${idx+1}" autocomplete="off" oninput="resetActionButtons()">
+                <div id="wp-list-${idx}" class="autocomplete-list"></div>
+            </div>
+            <button class="btn-map-pick" onclick="startMapSelection('waypoint', 'wp-input-${idx}', ${idx}, event)">📍</button>
+            <button class="btn-action" style="width: auto; background: var(--danger-red); padding: 0 12px; margin: 0;" onclick="removeWaypoint(${idx})">X</button>`;
+        container.appendChild(div); setupAutocomplete(`wp-input-${idx}`, `wp-list-${idx}`);
+    }
+
+    function removeWaypoint(idx) {
+        coordsData.waypoints.splice(idx, 1);
+        document.getElementById(`wp-row-${idx}`).remove();
+        resetActionButtons(); redrawTempMarkers();
+        
+        const container = document.getElementById('waypoints-container'); container.innerHTML = '';
+        let oldWaypoints = [...coordsData.waypoints]; coordsData.waypoints = [];
+        oldWaypoints.forEach(wp => {
+            addWaypoint();
+            const newIdx = coordsData.waypoints.length - 1;
+            document.getElementById(`wp-input-${newIdx}`).value = wp.addr;
+            coordsData.waypoints[newIdx] = wp;
+        });
+    }
+
+    function clearRoutes() { routingControls.forEach(rc => map.removeControl(rc)); routingControls = []; if (activeNavPolyline) { map.removeLayer(activeNavPolyline); activeNavPolyline = null; } }
+
+    async function processAddressToCoords(inputId) {
+        const val = document.getElementById(inputId)?.value;
+        if (!val) return null;
+        try { const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&countrycodes=cz`); const data = await res.json(); if (data && data.length > 0) return L.latLng(data[0].lat, data[0].lon); } catch (e) { return null; } return null;
     }
 
     function resetActionButtons() {
         document.getElementById('btn-calc').style.display = 'block';
         document.getElementById('btn-dispatch').style.display = 'none';
         document.getElementById('btn-stop-nav').style.display = 'none';
-        document.getElementById('btn-arrived-at-customer').style.display = 'none';
         document.getElementById('btn-nav-dropoff').style.display = 'none';
-        
-        document.getElementById('btn-waiting-for-customer').style.display = 'none';
-        document.getElementById('btn-customer-on-way').style.display = 'none';
+        clearRoutes();
+        document.getElementById('dist-val').innerText = '0';
+        document.getElementById('price-val').innerText = '0';
     }
 
-    function changeMode(mode) { 
-        currentMode = mode; 
-        document.querySelectorAll('.btn-mode').forEach(b => b.classList.remove('active')); 
-        document.getElementById(`mode-${mode}`).classList.add('active'); 
-        resetActionButtons();
-    }
-
-    function startMapSelection(type, inputId, wpIndex, e) {
-        if (e) e.stopPropagation(); const isAct = e.currentTarget.classList.contains('active'); document.querySelectorAll('.btn-map-pick').forEach(b => b.classList.remove('active')); activeSelection = null;
-        if (!isAct) { activeSelection = { type: type, inputId: inputId, wpIndex: wpIndex }; e.currentTarget.classList.add('active'); document.getElementById('map').style.cursor = 'crosshair'; }
-    }
-
-    map.on('click', function(e) {
-        if (!activeSelection) return; 
-        const latlng = e.latlng; const target = activeSelection; 
-        document.querySelectorAll('.btn-map-pick').forEach(b => b.classList.remove('active')); 
-        document.getElementById('map').style.cursor = 'default'; activeSelection = null;
+    async function calculateRoute() {
+        clearRoutes(); tempMarkers.clearLayers();
+        let pLatlng = coordsData.pickup; let dLatlng = coordsData.dropoff;
         
-        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}`).then(res => res.json()).then(data => {
-            let addr = data && data.display_name ? data.display_name.split(',').slice(0, 2).join(',') : "Místo z mapy"; 
-            document.getElementById(target.inputId).value = addr;
-            
-            let iconToUse = iconWaypoint;
-            if (target.type === 'pickup') { coordsData.pickup = latlng; iconToUse = iconPickup; } 
-            else if (target.type === 'dropoff' || target.type === 'taxitarget') { coordsData.dropoff = latlng; iconToUse = iconDropoff; } 
-            else if (target.type === 'waypoint') { coordsData.waypoints[target.wpIndex] = latlng; iconToUse = iconWaypoint; }
-            
-            tempMarkers.clearLayers(); L.marker(latlng, {icon: iconToUse}).addTo(tempMarkers).bindPopup(addr).openPopup();
-            resetActionButtons();
-        });
-    });
-
-    function setupAutocomplete(inputId, listId, type, wpIndex = null) {
-        const input = document.getElementById(inputId); const list = document.getElementById(listId); let timeout;
-        input.addEventListener('input', function() {
-            clearTimeout(timeout); list.innerHTML = ''; if (!this.value) return;
-            timeout = setTimeout(() => {
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${this.value}&countrycodes=cz`).then(res => res.json()).then(data => {
-                    list.innerHTML = ''; data.slice(0, 5).forEach(item => { 
-                        let div = document.createElement('div'); div.className = 'autocomplete-item'; div.innerText = item.display_name;
-                        div.onclick = () => {
-                            let sn = item.display_name.split(',').slice(0, 2).join(','); input.value = sn; list.innerHTML = ''; let latlng = L.latLng(item.lat, item.lon);
-                            
-                            let iconToUse = iconWaypoint;
-                            if (type === 'pickup') { coordsData.pickup = latlng; iconToUse = iconPickup; } 
-                            else if (type === 'dropoff' || type === 'taxitarget') { coordsData.dropoff = latlng; iconToUse = iconDropoff; } 
-                            else if (type === 'waypoint') { coordsData.waypoints[wpIndex] = latlng; iconToUse = iconWaypoint; }
-                            
-                            tempMarkers.clearLayers(); L.marker(latlng, {icon: iconToUse}).addTo(tempMarkers).bindPopup(sn).openPopup(); map.flyTo(latlng, 14); 
-                            resetActionButtons();
-                        }; list.appendChild(div);
-                    });
-                });
-            }, 400);
-        });
-    }
-    setupAutocomplete('pickup', 'pickup-list', 'pickup'); setupAutocomplete('dropoff', 'dropoff-list', 'dropoff'); setupAutocomplete('taxi-target-input', 'taxi-target-list', 'taxitarget');
-
-    function calculateRoute() {
-        if (!coordsData.pickup) return alert("Zadejte prosím alespoň místo nakládky."); 
+        if (!pLatlng) { pLatlng = await processAddressToCoords('pickup'); coordsData.pickup = pLatlng; }
+        if (!dLatlng && document.getElementById('dropoff').value) { dLatlng = await processAddressToCoords('dropoff'); coordsData.dropoff = dLatlng; }
         
-        tempMarkers.clearLayers(); 
-        clearRoutes(); 
-        
-        document.getElementById('dist-val').innerText = "...";
-        document.getElementById('price-val').innerText = "...";
-        
-        let legs = [];
-        
-        if (currentMode === 'mimo') {
-            legs.push([baseCoords, coordsData.pickup]);
-            let middleLeg = [coordsData.pickup];
-            coordsData.waypoints.forEach(wp => { if (wp) middleLeg.push(wp); });
-            if (coordsData.dropoff) {
-                middleLeg.push(coordsData.dropoff);
-                legs.push(middleLeg);
-                legs.push([coordsData.dropoff, baseCoords]);
-            } else {
-                middleLeg.push(baseCoords);
-                legs.push(middleLeg);
+        for (let i = 0; i < coordsData.waypoints.length; i++) {
+            if (!coordsData.waypoints[i].latlng) {
+                let wpLatLng = await processAddressToCoords(`wp-input-${i}`);
+                if (wpLatLng) { coordsData.waypoints[i].latlng = wpLatLng; coordsData.waypoints[i].addr = document.getElementById(`wp-input-${i}`).value; }
             }
-        } else {
-            let leg = [coordsData.pickup];
-            coordsData.waypoints.forEach(wp => { if (wp) leg.push(wp); });
-            if (coordsData.dropoff) { leg.push(coordsData.dropoff); }
-            if (leg.length < 2) return alert("Pro jízdu ve městě zadejte alespoň místo nakládky a vykládky (nebo průjezdní bod).");
-            legs.push(leg);
         }
 
-        if (currentMode === 'mimo') { L.marker(baseCoords, {icon: iconBase}).addTo(tempMarkers).bindPopup("Základna"); }
-        L.marker(coordsData.pickup, {icon: iconPickup}).addTo(tempMarkers).bindPopup("Nakládka");
-        coordsData.waypoints.forEach((wp, idx) => { if (wp) L.marker(wp, {icon: iconWaypoint}).addTo(tempMarkers).bindPopup("Průjezd " + (idx + 1)); });
-        if (coordsData.dropoff) { L.marker(coordsData.dropoff, {icon: iconDropoff}).addTo(tempMarkers).bindPopup("Vykládka"); }
+        if (!pLatlng || !dLatlng) { alert("Nelze najít souřadnice. Zkontrolujte adresy nakládky a vykládky."); return; }
+        redrawTempMarkers();
 
-        let totalDist = 0;
-        let routesCompleted = 0;
-        let routesExpected = legs.length;
+        let allWaypoints = [createWaypoint(pLatlng)];
+        coordsData.waypoints.forEach(wp => { if (wp.latlng) allWaypoints.push(createWaypoint(wp.latlng)); });
+        allWaypoints.push(createWaypoint(dLatlng));
 
-        legs.forEach((legPoints) => {
-            let finalWaypoints = legPoints.map(p => createWaypoint(p));
-            
-            let rc = L.Routing.control({ 
-                plan: L.Routing.plan(finalWaypoints, { createMarker: function() { return null; } }),
-                router: getRouter(legPoints.length), 
-                lineOptions: { styles: [ { color: '#004d00', opacity: 0.8, weight: 8 }, { color: '#00FF00', opacity: 1, weight: 5 } ] }, 
-                show: false, 
-                addWaypoints: false, 
-                fitSelectedRoutes: false 
-            }).addTo(map);
-            
-            routingControls.push(rc); 
-            
-            rc.on('routesfound', function(e) {
-                let dist = (e.routes[0].summary.totalDistance / 1000); 
-                totalDist += dist;
-                routesCompleted++;
-                
-                if (routesCompleted === routesExpected) {
-                    let distFixed = parseFloat(totalDist.toFixed(1)); 
-                    let price = currentMode === 'mimo' ? Math.round((distFixed * 13) + 20) : Math.round((distFixed * 34) + 20); 
-                    if (price < 60) { price = 60; }
+        let rc = L.Routing.control({
+            waypoints: allWaypoints, router: getRouter(allWaypoints.length), routeWhileDragging: true, show: false, addWaypoints: false, lineOptions: { styles: [{ color: '#15803d', opacity: 0.8, weight: 6 }] }
+        }).addTo(map);
+        routingControls.push(rc);
 
-                    document.getElementById('dist-val').innerText = distFixed; 
-                    document.getElementById('price-val').innerText = price.toLocaleString('cs-CZ');
-                    
-                    if (window.innerWidth <= 768) { 
-                        setTimeout(() => { document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 300); 
-                    }
-                    
-                    document.getElementById('btn-calc').style.display = 'none';
-                    document.getElementById('btn-dispatch').style.display = 'block';
-
-                    let group = new L.featureGroup(tempMarkers.getLayers());
-                    if (group.getLayers().length > 0) { map.fitBounds(group.getBounds(), {padding: [40, 40]}); }
-                }
-            });
+        rc.on('routesfound', function(e) {
+            let routes = e.routes; let summary = routes[0].summary;
+            let distKm = summary.totalDistance / 1000;
+            let price = baseRate + (distKm * ratePerKm);
             
-            rc.on('routingerror', function(err) {
-                console.error("Chyba výpočtu úseku:", err);
-                routesCompleted++;
-                if (routesCompleted === routesExpected && totalDist === 0) {
-                    alert("Chyba při výpočtu trasy (Nelze se spojit se serverem).");
-                }
-            });
+            document.getElementById('dist-val').innerText = distKm.toFixed(1);
+            document.getElementById('price-val').innerText = Math.round(price);
+            
+            document.getElementById('btn-calc').style.display = 'none';
+            document.getElementById('btn-dispatch').style.display = 'block';
+            
+            map.fitBounds(L.polyline(routes[0].coordinates).getBounds(), { padding: [50, 50] });
         });
     }
 
     function dispatchVehicle() {
-        if (!coordsData.pickup) return alert("Zadejte Místo nakládky."); if (!navigator.geolocation) return alert("GPS není podporována.");
-        const vehicleId = localStorage.getItem('taxi_green_vehicle_id');
-        if (!vehicleId) { return alert("⚠️ Vyberte prosím nejprve vozidlo, na kterém dnes jedete! (Tlačítko s autíčkem nahoře)"); }
-
+        if (!navigator.geolocation) return alert("GPS není podporována.");
         requestWakeLock();
-
-        clearRoutes(); tempMarkers.clearLayers(); etaUpdated = false;
-        document.getElementById('btn-calc').style.display = 'none'; document.getElementById('btn-dispatch').style.display = 'none'; document.getElementById('btn-stop-nav').style.display = 'block';
-        L.marker(coordsData.pickup, {icon: iconPickup}).addTo(tempMarkers).bindPopup("Jedu sem!").openPopup();
-        locationSharingActive = true; 
+        
+        document.getElementById('btn-calc').style.display = 'none'; 
+        document.getElementById('btn-dispatch').style.display = 'none'; 
+        document.getElementById('btn-nav-dropoff').style.display = 'none';
+        document.getElementById('btn-stop-nav').style.display = 'block';
+        document.getElementById('btn-arrived-at-customer').style.display = 'block';
         
         taxiLastPosition = null; 
+        
+        if (activeOrderId && db) { locationSharingActive = true; db.collection("taxi_orders").doc(activeOrderId).update({ driverLat: null, driverLng: null, driverArrived: false }); }
 
         map.locate({ setView: true, maxZoom: 18, watch: true, enableHighAccuracy: true });
         map.on('locationfound', function(e) {
@@ -1897,11 +1905,11 @@
                     if (!isUserInteracting) {
                         map.setBearing(lastKnownBearing); 
                     }
-                    
+
                     let currentMapBearing = map.getBearing() || 0;
                     let iconRotation = rawBearing - currentMapBearing;
                     iconRotation = ((iconRotation + 540) % 360) - 180;
-
+                    
                     const carIconEl = document.getElementById('driver-car-icon');
                     if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
                 } else {
@@ -1913,12 +1921,19 @@
 
             if (realtimeDriverMarker) { 
                 realtimeDriverMarker.setLatLng(e.latlng); 
-            } else {
-                realtimeDriverMarker = L.marker(e.latlng, { icon: greenCarIcon, zIndexOffset: 1000 }).addTo(map);
-                let rc = L.Routing.control({ 
-                    waypoints: [ createWaypoint(e.latlng), createWaypoint(coordsData.pickup) ], 
-                    router: getRouter(2), 
-                    show: false, addWaypoints: false,
+            } else { 
+                realtimeDriverMarker = L.marker(e.latlng, { icon: greenCarIcon, zIndexOffset: 1000 }).addTo(map); 
+            } 
+            if (!isUserInteracting) {
+                map.panTo(e.latlng, { animate: true, duration: 0.5 });
+            }
+
+            if (activeOrderId && db && locationSharingActive) { db.collection("taxi_orders").doc(activeOrderId).update({ driverLat: e.latlng.lat, driverLng: e.latlng.lng }); }
+
+            if (routingControls.length === 0 && coordsData.pickup) {
+                let rc = L.Routing.control({
+                    waypoints: [ createWaypoint(e.latlng), createWaypoint(coordsData.pickup) ],
+                    router: getRouter(2), show: false, addWaypoints: false,
                     routeLine: function(route) { return L.Routing.line(route, { styles: [{color: 'transparent', opacity: 0}] }); }
                 }).addTo(map);
                 
@@ -1929,51 +1944,37 @@
                     if (activeNavPolyline) map.removeLayer(activeNavPolyline);
                     activeNavPolyline = L.polyline(activeNavCoords, { color: '#00FF00', opacity: 1, weight: 8 }).addTo(map);
 
-                    if (activeOrderId && db && locationSharingActive && !etaUpdated) {
-                        let durationSec = res.routes[0].summary.totalTime;
-                        let durationMin = Math.round(durationSec / 60);
-                        let extraTime = parseInt(document.getElementById('detail-extra-time').value) || 0;
-                        
-                        db.collection("taxi_orders").doc(activeOrderId).update({ eta: durationMin + extraTime });
-                        etaUpdated = true; 
+                    if (activeOrderId && db && locationSharingActive) {
+                        const totalSec = res.routes[0].summary.totalTime; 
+                        const extraTimeMin = parseInt(document.getElementById('detail-extra-time').value) || 0;
+                        const etaMin = Math.round(totalSec / 60) + extraTimeMin;
+                        db.collection("taxi_orders").doc(activeOrderId).update({ eta: etaMin });
                     }
                 });
-
                 routingControls.push(rc);
-            } 
-            if (!isUserInteracting) {
-                map.panTo(e.latlng, { animate: true, duration: 0.5 });
             }
             updateNavigationProgress(e.latlng);
-
-            if (activeOrderId && db && locationSharingActive) { db.collection("taxi_orders").doc(activeOrderId).update({ driverLat: e.latlng.lat, driverLng: e.latlng.lng }); }
         });
     }
 
     function stopNavigation() {
-        releaseWakeLock();
-        locationSharingActive = false; map.stopLocate(); 
-        if (realtimeDriverMarker) { map.removeLayer(realtimeDriverMarker); realtimeDriverMarker = null; }
-        clearRoutes(); 
-        hideNavigationInstructionsUI();
-        map.off('locationfound'); map.off('locationerror');
+        map.stopLocate(); map.off('locationfound'); 
         map.setBearing(0); 
-        resetActionButtons();
-        map.setZoom(15);
-    }
+        clearRoutes(); hideNavigationInstructionsUI(); releaseWakeLock(); locationSharingActive = false;
+        
+        document.getElementById('btn-stop-nav').style.display = 'none'; 
+        document.getElementById('btn-arrived-at-customer').style.display = 'none';
+        document.getElementById('btn-nav-dropoff').style.display = 'none';
+        document.getElementById('btn-waiting-for-customer').style.display = 'none';
+        document.getElementById('btn-customer-on-way').style.display = 'none';
+        document.getElementById('btn-calc').style.display = 'block'; 
+        
+        const carIconEl = document.getElementById('driver-car-icon');
+        if (carIconEl) { carIconEl.style.transform = `rotate(0deg)`; }
 
-    function addWaypoint() {
-        const idx = coordsData.waypoints.length; coordsData.waypoints.push(null); const container = document.getElementById('waypoints-container');
-        const div = document.createElement('div'); div.className = 'input-row'; div.id = `wp-row-${idx}`;
-        div.innerHTML = `<div class="input-wrapper"><input type="text" id="wp-${idx}" placeholder="Průjezdný bod..." autocomplete="off" oninput="resetActionButtons()"><div id="wp-list-${idx}" class="autocomplete-list"></div></div><button class="btn-map-pick" onclick="startMapSelection('waypoint', 'wp-${idx}', ${idx}, event)">📍</button><button class="btn-map-pick" style="background:var(--danger-red); color:white; border-color:transparent;" onclick="removeWaypoint(${idx})">✕</button>`;
-        container.appendChild(div); setupAutocomplete(`wp-${idx}`, `wp-list-${idx}`, 'waypoint', idx);
-        resetActionButtons();
-    }
-    
-    function removeWaypoint(idx) { 
-        document.getElementById(`wp-row-${idx}`).remove(); 
-        coordsData.waypoints[idx] = null; 
-        resetActionButtons();
+        if (activeOrderId && db) { db.collection("taxi_orders").doc(activeOrderId).update({ driverLat: null, driverLng: null, eta: null }); }
+        
+        if (coordsData.pickup) { map.setView(coordsData.pickup, 14); }
     }
 </script>
 </body>
