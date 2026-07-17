@@ -273,8 +273,15 @@
                     <button class="btn-dispatch" id="btn-dispatch" onclick="dispatchVehicle()" style="display: none;">Navigovat k zákazníkovi</button>
                     
                     <button class="btn-stop-nav" id="btn-stop-nav" onclick="stopNavigation()">🛑 Zastavit navigaci</button>
+                    
                     <button id="btn-arrived-at-customer" style="display: none; width: 100%; padding: 14px; background: var(--warning-amber); color: black; border: none; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 16px; text-transform: uppercase; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" onclick="confirmArrivalAtCustomer()">👋 Jsem u zákazníka</button>
                     
+                    <!-- NOVÁ TLAČÍTKA PRO REAKCI NA ZÁKAZNÍKA -->
+                    <button id="btn-waiting-for-customer" style="display: none; width: 100%; padding: 14px; background: #e2e8f0; color: #64748b; border: 2px dashed #cbd5e1; border-radius: 8px; font-weight: 800; font-size: 16px; text-transform: uppercase; margin-bottom: 10px;" disabled>⏳ Čekání na zákazníka...</button>
+
+                    <button id="btn-customer-on-way" style="display: none; width: 100%; padding: 14px; background: var(--green-primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 900; font-size: 15px; text-transform: uppercase; margin-bottom: 10px; box-shadow: 0 4px 10px rgba(21,128,61,0.4); animation: pulse 1.2s infinite;" onclick="startRideAfterUzJdu()">🏃 Zákazník nastoupil / Odstartovat</button>
+                    <!-- --------------------------------------- -->
+
                     <button id="btn-nav-dropoff" class="btn-nav-dropoff" onclick="startNavigationToDropoff()">📍 Navigovat do místa vykládky</button>
 
                     <div id="results-box">
@@ -1052,6 +1059,7 @@
 
     function stopAlarm() { if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; } }
     
+    // --- HLAVNÍ POSLUCHAČ DATABÁZE ---
     function initFirebaseOrders() {
         if (!db) return;
         db.collection("taxi_orders").onSnapshot(snapshot => {
@@ -1068,6 +1076,22 @@
             if (document.getElementById('section-orders').classList.contains('active')) { renderOrders();
             } else if (newOrders.length > 0) { document.getElementById('btn-top-orders').classList.add('alert'); }
             if (newOrders.length === 0) { document.getElementById('btn-top-orders').classList.remove('alert'); stopAlarm(); }
+
+            // --- NOVÁ DETEKCE "UŽ JDU" ---
+            if (activeOrderId) {
+                const myActiveOrder = pendingOrders.find(o => o.id === activeOrderId);
+                if (myActiveOrder && myActiveOrder.status === "Už jdu") {
+                    const waitingBtn = document.getElementById('btn-waiting-for-customer');
+                    const onWayBtn = document.getElementById('btn-customer-on-way');
+
+                    // Pokud ještě není zobrazené zelené tlačítko, spustíme alarm
+                    if (onWayBtn && onWayBtn.style.display !== 'block') {
+                        startAlarm();
+                        if (waitingBtn) waitingBtn.style.display = 'none';
+                        onWayBtn.style.display = 'block';
+                    }
+                }
+            }
         });
     }
 
@@ -1320,8 +1344,6 @@
             locationSharingActive = false; 
             releaseWakeLock();
 
-            // OPRAVA: Nemážeme driverLat a driverLng, aby zákaznické aplikaci nezmizelo auto, 
-            // ale pouze nastavíme, že řidič dorazil a ETA je 0.
             db.collection("taxi_orders").doc(activeOrderId).update({ 
                 driverArrived: true, 
                 eta: 0 
@@ -1332,15 +1354,30 @@
                 map.stopLocate(); clearRoutes(); map.off('locationfound'); 
                 hideNavigationInstructionsUI();
                 
-                let dropoffVal = document.getElementById('dropoff').value;
-                if (dropoffVal) {
-                    alert("Zákazník byl informován o přistavení.");
-                    document.getElementById('btn-nav-dropoff').style.display = 'block';
-                } else {
-                    alert("Úspěšně přistaveno k zákazníkovi.\nAplikace je nyní uvolněna.");
-                    resetActionButtons();
-                }
+                // --- NOVINKA: Zobrazíme tlačítko, že čekáme ---
+                document.getElementById('btn-waiting-for-customer').style.display = 'block';
+
             }).catch(err => alert("Chyba při odesílání: " + err.message));
+        }
+    }
+
+    // --- NOVÁ FUNKCE KDYŽ ZÁKAZNÍK KLIKNE "UŽ JDU" ---
+    function startRideAfterUzJdu() {
+        stopAlarm();
+        document.getElementById('btn-customer-on-way').style.display = 'none';
+
+        if (activeOrderId && db) {
+            // Změníme status, aby na to dispečink ani aplikace znovu nereagovaly
+            db.collection("taxi_orders").doc(activeOrderId).update({ status: "Zákazník ve voze" });
+        }
+
+        let dropoffVal = document.getElementById('dropoff').value;
+        if (dropoffVal) {
+            document.getElementById('btn-nav-dropoff').style.display = 'block';
+            startNavigationToDropoff(); // Rovnou spustí navigaci k cíli
+        } else {
+            alert("Zákazník nastoupil. Nemáte zadaný cíl cesty, můžete spustit Taxametr ručně.");
+            resetActionButtons();
         }
     }
 
@@ -1350,7 +1387,6 @@
         
         let targetCoords = coordsData.dropoff; let dropoffVal = document.getElementById('dropoff').value;
         
-        // Pokud jsme dostali souřadnice z Firebase rovnou (dLat/dLng), targetCoords by mělo být nastaveno už z confirmOrder.
         if (!targetCoords && dropoffVal) { 
             fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(dropoffVal)}&countrycodes=cz`).then(res => res.json()).then(data => { 
                 if(data && data.length > 0) { 
@@ -1373,7 +1409,6 @@
         map.locate({ setView: true, maxZoom: 18, watch: true, enableHighAccuracy: true });
         map.on('locationfound', function(e) {
             
-            // 1. Pozvolná rotace mapy se stabilizací směru a natáčení do zatáček
             if (taxiLastPosition) {
                 let dist = e.latlng.distanceTo(taxiLastPosition);
                 if (dist > 3) {
@@ -1391,14 +1426,12 @@
                     const carIconEl = document.getElementById('driver-car-icon');
                     if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
                 } else {
-                    // Vozidlo stojí, srovnáme rotaci (zmrazení kompasu)
                     const carIconEl = document.getElementById('driver-car-icon');
                     if (carIconEl) { carIconEl.style.transform = `rotate(0deg)`; }
                 }
             }
             taxiLastPosition = e.latlng;
 
-            // 2. Vykreslení autíčka a přesun mapy
             if (realtimeDriverMarker) { 
                 realtimeDriverMarker.setLatLng(e.latlng); 
             } else { 
@@ -1408,7 +1441,6 @@
                 map.panTo(e.latlng, { animate: true, duration: 0.5 });
             }
 
-            // 3. Routování (bez defaultní čáry) a vytvoření naší ořezávací polyline
             if (routingControls.length === 0) { 
                 let rc = L.Routing.control({ 
                     waypoints: [ createWaypoint(e.latlng), createWaypoint(coordsData.dropoff) ], 
@@ -1492,7 +1524,6 @@
         if (!navigator.geolocation) { alert("Váš prohlížeč nepodporuje GPS polohu."); return; }
         requestWakeLock();
         
-        // ZAPNUTÍ FULLSCREENU A NOVÉHO LAYOUTU (s přeskládanými prvky)
         spustTaxameterRezim();
 
         const targetName = document.getElementById('taxi-target-input').value || "Nezadáno"; document.getElementById('taxi-display-target').innerText = targetName;
@@ -1688,6 +1719,9 @@
         document.getElementById('btn-stop-nav').style.display = 'none';
         document.getElementById('btn-arrived-at-customer').style.display = 'none';
         document.getElementById('btn-nav-dropoff').style.display = 'none';
+        
+        document.getElementById('btn-waiting-for-customer').style.display = 'none';
+        document.getElementById('btn-customer-on-way').style.display = 'none';
     }
 
     function changeMode(mode) { 
@@ -1854,7 +1888,6 @@
         map.locate({ setView: true, maxZoom: 18, watch: true, enableHighAccuracy: true });
         map.on('locationfound', function(e) {
             
-            // 1. Pozvolná rotace mapy se stabilizací směru (Sygic styl)
             if (taxiLastPosition) {
                 let dist = e.latlng.distanceTo(taxiLastPosition);
                 if (dist > 3) {
@@ -1878,7 +1911,6 @@
             }
             taxiLastPosition = e.latlng;
 
-            // 2. Vykreslení auta a stabilní přesun mapy
             if (realtimeDriverMarker) { 
                 realtimeDriverMarker.setLatLng(e.latlng); 
             } else {
