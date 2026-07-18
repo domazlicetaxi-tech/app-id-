@@ -358,10 +358,15 @@
         </div>
 
         <!-- NOVÉ MENU ADMINISTRACE -->
+        <!-- NOVÉ MENU ADMINISTRACE -->
         <div id="section-admin-menu" class="panel-content">
             <button class="btn-action" onclick="closeAdmin()" style="margin-bottom:15px; background:#64748b; margin-top: 0;">⬅ Zpět do aplikace</button>
             <div class="admin-title" style="margin-top: 20px; font-size: 16px;">Hlavní administrace systému</div>
             <button class="btn-action" onclick="openAdminEvidence()" style="background:var(--driver-blue); padding: 16px; font-size: 15px; margin-top: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">📋 Evidence řidičů a vozidel</button>
+            
+            <button class="btn-action" onclick="openAdminActiveOrders()" style="background:var(--warning-amber); color:black; padding: 16px; font-size: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">🟢 Správa aktivních objednávek</button>
+            <button class="btn-action" onclick="openAdminHistory()" style="background:#475569; padding: 16px; font-size: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">📚 Historie všech jízd</button>
+            <button class="btn-action" onclick="openAdminUsers()" style="background:var(--green-primary); padding: 16px; font-size: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">👥 Registrovaní zákazníci</button>
         </div>
 
         <div id="section-admin" class="panel-content">
@@ -407,6 +412,27 @@
 
             <div class="admin-title" style="margin-top: 25px;">Seznam zaevidovaných vozidel</div>
             <div id="admin-vehicles-list"></div>
+        </div>
+
+<!-- ADMIN: AKTIVNÍ OBJEDNÁVKY -->
+        <div id="section-admin-active-orders" class="panel-content">
+            <button class="btn-action" onclick="showSection('section-admin-menu')" style="margin-bottom:15px; background:#64748b; margin-top: 0;">⬅ Zpět do menu administrace</button>
+            <div class="admin-title">Správa aktivních objednávek</div>
+            <div id="admin-active-orders-list"></div>
+        </div>
+
+        <!-- ADMIN: HISTORIE OBJEDNÁVEK -->
+        <div id="section-admin-history" class="panel-content">
+            <button class="btn-action" onclick="showSection('section-admin-menu')" style="margin-bottom:15px; background:#64748b; margin-top: 0;">⬅ Zpět do menu administrace</button>
+            <div class="admin-title">Historie dokončených a zrušených jízd</div>
+            <div id="admin-history-orders-list"></div>
+        </div>
+
+        <!-- ADMIN: REGISTROVANÍ ZÁKAZNÍCI -->
+        <div id="section-admin-users" class="panel-content">
+            <button class="btn-action" onclick="showSection('section-admin-menu')" style="margin-bottom:15px; background:#64748b; margin-top: 0;">⬅ Zpět do menu administrace</button>
+            <div class="admin-title">Evidence registrovaných zákazníků</div>
+            <div id="admin-users-list"></div>
         </div>
 
         <div id="section-orders" class="panel-content">
@@ -1975,6 +2001,132 @@
         if (activeOrderId && db) { db.collection("taxi_orders").doc(activeOrderId).update({ driverLat: null, driverLng: null, eta: null }); }
         
         if (coordsData.pickup) { map.setView(coordsData.pickup, 14); }
+    }
+// --- FUNKCE PRO ADMINISTRACI ZÁKAZNÍKŮ A OBJEDNÁVEK ---
+
+    let adminActiveOrdersListener = null;
+    let adminHistoryOrdersListener = null;
+    let adminUsersListener = null;
+
+    // 1. Aktivní objednávky
+    function openAdminActiveOrders() {
+        showSection('section-admin-active-orders');
+        const container = document.getElementById('admin-active-orders-list');
+        container.innerHTML = '<p style="font-size:13px; color:var(--text-muted);">Načítám aktivní objednávky...</p>';
+        if (!db) return;
+        if (adminActiveOrdersListener) adminActiveOrdersListener();
+
+        adminActiveOrdersListener = db.collection("taxi_orders")
+            .where("status", "in", ["Nová", "Potvrzeno", "Už jdu", "Zákazník ve voze"])
+            .onSnapshot(snapshot => {
+                container.innerHTML = '';
+                if (snapshot.empty) { container.innerHTML = '<p style="font-size:13px; font-style:italic;">Žádné aktivní objednávky.</p>'; return; }
+                
+                let html = '';
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    html += `
+                        <div class="driver-item" style="border-left: 4px solid var(--warning-amber);">
+                            <div class="driver-item-header">
+                                <strong>${data.customerName || data.name || 'Zákazník'}</strong>
+                                <span style="background:#f59e0b; color:#000; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold;">${data.status}</span>
+                            </div>
+                            <div style="font-size:12px; margin-bottom:8px;">
+                                📍 ${data.pickup}<br>🏁 ${data.dropoff || 'Nezadáno'}
+                            </div>
+                            <button class="btn-delete" onclick="deleteGlobalOrder('${doc.id}')" style="width:100%;">Smazat objednávku</button>
+                        </div>`;
+                });
+                container.innerHTML = html;
+            });
+    }
+
+    // 2. Historie jízd
+    function openAdminHistory() {
+        showSection('section-admin-history');
+        const container = document.getElementById('admin-history-orders-list');
+        container.innerHTML = '<p style="font-size:13px; color:var(--text-muted);">Načítám historii...</p>';
+        if (!db) return;
+        if (adminHistoryOrdersListener) adminHistoryOrdersListener();
+
+        adminHistoryOrdersListener = db.collection("taxi_orders")
+            .where("status", "in", ["Dokončeno", "Zrušeno"])
+            .onSnapshot(snapshot => {
+                container.innerHTML = '';
+                if (snapshot.empty) { container.innerHTML = '<p style="font-size:13px; font-style:italic;">Historie je prázdná.</p>'; return; }
+                
+                let html = '';
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const statusColor = data.status === 'Dokončeno' ? 'var(--green-light)' : 'var(--danger-red)';
+                    html += `
+                        <div class="driver-item" style="border-left: 4px solid ${statusColor}; opacity: 0.85;">
+                            <div class="driver-item-header">
+                                <strong>${data.customerName || data.name || 'Zákazník'}</strong>
+                                <span style="color:${statusColor}; font-size:11px; font-weight:bold;">${data.status}</span>
+                            </div>
+                            <div style="font-size:11px; margin-bottom:8px; color:var(--text-muted);">
+                                Čas doručení/zrušení: ${data.time || 'Neznámý'}<br>
+                                Vyřizoval: ${data.driverName || 'Nezadáno'}
+                            </div>
+                            <button class="btn-delete" onclick="deleteGlobalOrder('${doc.id}')" style="background:#cbd5e1; color:#333; width:100%;">Odstranit z historie</button>
+                        </div>`;
+                });
+                container.innerHTML = html;
+            });
+    }
+
+    // Společná funkce pro mazání objednávek (Aktivních i v Historii)
+    async function deleteGlobalOrder(docId) {
+        if (!confirm("Opravdu chcete tento záznam objednávky trvale smazat?")) return;
+        try {
+            await db.collection("taxi_orders").doc(docId).delete();
+            alert("Objednávka byla úspěšně smazána.");
+        } catch (error) {
+            alert("Chyba při mazání: " + error.message);
+        }
+    }
+
+    // 3. Evidence uživatelů
+    function openAdminUsers() {
+        showSection('section-admin-users');
+        const container = document.getElementById('admin-users-list');
+        container.innerHTML = '<p style="font-size:13px; color:var(--text-muted);">Načítám uživatele z databáze...</p>';
+        if (!db) return;
+        if (adminUsersListener) adminUsersListener();
+
+        adminUsersListener = db.collection("system_users").onSnapshot(snapshot => {
+            container.innerHTML = '';
+            if (snapshot.empty) { container.innerHTML = '<p style="font-size:13px; font-style:italic;">Zatím nejsou zaregistrováni žádní zákazníci.</p>'; return; }
+            
+            let html = '';
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                html += `
+                    <div class="driver-item">
+                        <div class="driver-item-header">
+                            <strong>${data.name || data.fullname || 'Neznámé jméno'}</strong>
+                            <span style="color:var(--driver-blue); font-size:12px; font-weight:bold;">📞 ${data.phone || 'Bez čísla'}</span>
+                        </div>
+                        <div style="font-size:11px; margin-bottom:8px; color:var(--text-muted);">
+                            Login/Email: ${data.email || data.username || 'Nezadáno'}<br>
+                            Registrace: ${data.registeredAt || 'Neznámý čas'}
+                        </div>
+                        <button class="btn-delete" onclick="deleteGlobalUser('${doc.id}', '${data.name || 'zákazníka'}')" style="width:100%;">Smazat účet zákazníka</button>
+                    </div>`;
+            });
+            container.innerHTML = html;
+        });
+    }
+
+    async function deleteGlobalUser(docId, userName) {
+        if (!confirm(`POZOR!\nOpravdu chcete smazat zákazníka ${userName} a zrušit mu přístup do klientské aplikace?`)) return;
+        try {
+            await db.collection("system_users").doc(docId).delete();
+            alert("Zákaznický účet byl smazán.");
+        } catch (error) {
+            alert("Chyba při mazání uživatele: " + error.message);
+        }
     }
 </script>
 </body>
