@@ -2002,17 +2002,86 @@
         
         if (coordsData.pickup) { map.setView(coordsData.pickup, 14); }
     }
-// --- FUNKCE PRO ADMINISTRACI ZÁKAZNÍKŮ A OBJEDNÁVEK ---
 
+    // --- NOVÁ FUNKCE PRO SKRÝVÁNÍ MAPY A FULLSCREEN PŘEHLEDY V ADMINU ---
+    function prepareAdminView() {
+        // Skryje hlavní mapu a roztáhne sekce na celé okno
+        const mapEl = document.getElementById('map');
+        if (mapEl) mapEl.style.display = 'none';
+        
+        // Přidáme dynamický styl pro přehlednost oken v administraci
+        if (!document.getElementById('admin-full-window-style')) {
+            const style = document.createElement('style');
+            style.id = 'admin-full-window-style';
+            style.innerHTML = `
+                .admin-fullscreen-box { background: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-top: 15px; }
+                .driver-item { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 6px; margin-bottom: 12px; }
+                .admin-btn-group { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+                .btn-admin-action { padding: 8px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+                .btn-admin-call { background: #2563eb; color: #ffffff; }
+                .btn-admin-email { background: #475569; color: #ffffff; }
+                .btn-admin-map { background: #16a34a; color: #ffffff; }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+    
+    // Návratová funkce, která mapu zase ukáže (např. při odchodu z adminu nebo zobrazení trasy)
+    function restoreMainMap() {
+        const mapEl = document.getElementById('map');
+        if (mapEl) {
+            mapEl.style.display = 'block';
+            if (typeof map !== 'undefined' && map.invalidateSize) {
+                map.invalidateSize();
+            }
+        }
+    }
+
+    // Funkce pro vykreslení zákazníkovy trasy z admin přehledu přímo na mapě
+    function viewCustomerRoute(pLat, pLng, dLat, dLng) {
+        if (!pLat || !pLng) return alert("Chybi GPS souřadnice pro vykreslení trasy.");
+        restoreMainMap();
+        clearRoutes();
+        
+        let pickupLatLng = L.latLng(pLat, pLng);
+        map.setView(pickupLatLng, 14);
+        L.marker(pickupLatLng, {icon: iconPickup}).addTo(map).bindPopup("Místo, kde zákazník stál/stojí").openPopup();
+        
+        if (dLat && dLng) {
+            let dropoffLatLng = L.latLng(dLat, dLng);
+            L.marker(dropoffLatLng, {icon: iconDropoff}).addTo(map);
+            
+            let rc = L.Routing.control({
+                waypoints: [createWaypoint(pickupLatLng), createWaypoint(dropoffLatLng)],
+                router: getRouter(2), show: false, addWaypoints: false,
+                lineOptions: { styles: [{ color: '#2563eb', opacity: 0.8, weight: 6 }] }
+            }).addTo(map);
+            routingControls.push(rc);
+        }
+        
+        if (window.innerWidth <= 768) {
+            document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+
+    // --- SEKCE PRO ADMINISTRACI ZÁKAZNÍKŮ A OBJEDNÁVEK ---
     let adminActiveOrdersListener = null;
     let adminHistoryOrdersListener = null;
     let adminUsersListener = null;
 
-    // 1. Aktivní objednávky
+    // 1. Evidence řidičů a vozidel
+    function openAdminDrivers() {
+        prepareAdminView();
+        showSection('section-admin-drivers');
+        // Zde můžete načítat řidiče ze samostatné kolekce, pokud ji využíváte
+    }
+
+    // 2. Správa aktivních objednávek
     function openAdminActiveOrders() {
+        prepareAdminView();
         showSection('section-admin-active-orders');
         const container = document.getElementById('admin-active-orders-list');
-        container.innerHTML = '<p style="font-size:13px; color:var(--text-muted);">Načítám aktivní objednávky...</p>';
+        container.innerHTML = '<p style="font-size:13px; color:var(--text-muted);">Načítám aktivní objednávky z klientské aplikace...</p>';
         if (!db) return;
         if (adminActiveOrdersListener) adminActiveOrdersListener();
 
@@ -2020,29 +2089,42 @@
             .where("status", "in", ["Nová", "Potvrzeno", "Už jdu", "Zákazník ve voze"])
             .onSnapshot(snapshot => {
                 container.innerHTML = '';
-                if (snapshot.empty) { container.innerHTML = '<p style="font-size:13px; font-style:italic;">Žádné aktivní objednávky.</p>'; return; }
+                if (snapshot.empty) { container.innerHTML = '<div class="admin-fullscreen-box"><p style="font-size:13px; font-style:italic;">Žádné aktivní objednávky.</p></div>'; return; }
                 
-                let html = '';
+                let html = '<div class="admin-fullscreen-box">';
                 snapshot.forEach(doc => {
                     const data = doc.data();
+                    const pLat = data.pickupLat || (data.coordsData?.pickup?.lat) || null;
+                    const pLng = data.pickupLng || (data.coordsData?.pickup?.lng) || null;
+                    const dLat = data.dropoffLat || (data.coordsData?.dropoff?.lat) || null;
+                    const dLng = data.dropoffLng || (data.coordsData?.dropoff?.lng) || null;
+                    const calcPrice = data.price || data.calculatedPrice || 'Nezadána';
+
                     html += `
                         <div class="driver-item" style="border-left: 4px solid var(--warning-amber);">
                             <div class="driver-item-header">
                                 <strong>${data.customerName || data.name || 'Zákazník'}</strong>
                                 <span style="background:#f59e0b; color:#000; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold;">${data.status}</span>
                             </div>
-                            <div style="font-size:12px; margin-bottom:8px;">
-                                📍 ${data.pickup}<br>🏁 ${data.dropoff || 'Nezadáno'}
+                            <div style="font-size:13px; margin-bottom:8px; line-height: 1.4;">
+                                📍 <strong>Od:</strong> ${data.pickup}<br>
+                                🏁 <strong>Do:</strong> ${data.dropoff || 'Nezadáno'}<br>
+                                💰 <strong>Předvypočítaná cena:</strong> ${calcPrice} Kč
                             </div>
-                            <button class="btn-delete" onclick="deleteGlobalOrder('${doc.id}')" style="width:100%;">Smazat objednávku</button>
+                            <div class="admin-btn-group">
+                                <button class="btn-admin-action btn-admin-map" onclick="viewCustomerRoute(${pLat}, ${pLng}, ${dLat}, ${dLng})">🗺️ Zobrazit trasu & kde stojí</button>
+                                <button class="btn-delete" onclick="deleteGlobalOrder('${doc.id}')" style="margin:0; width:auto; padding:8px 14px;">Smazat objednávku</button>
+                            </div>
                         </div>`;
                 });
+                html += '</div>';
                 container.innerHTML = html;
             });
     }
 
-    // 2. Historie jízd
+    // 3. Historie všech jízd
     function openAdminHistory() {
+        prepareAdminView();
         showSection('section-admin-history');
         const container = document.getElementById('admin-history-orders-list');
         container.innerHTML = '<p style="font-size:13px; color:var(--text-muted);">Načítám historii...</p>';
@@ -2053,30 +2135,40 @@
             .where("status", "in", ["Dokončeno", "Zrušeno"])
             .onSnapshot(snapshot => {
                 container.innerHTML = '';
-                if (snapshot.empty) { container.innerHTML = '<p style="font-size:13px; font-style:italic;">Historie je prázdná.</p>'; return; }
+                if (snapshot.empty) { container.innerHTML = '<div class="admin-fullscreen-box"><p style="font-size:13px; font-style:italic;">Historie je prázdná.</p></div>'; return; }
                 
-                let html = '';
+                let html = '<div class="admin-fullscreen-box">';
                 snapshot.forEach(doc => {
                     const data = doc.data();
                     const statusColor = data.status === 'Dokončeno' ? 'var(--green-light)' : 'var(--danger-red)';
+                    const pLat = data.pickupLat || null; const pLng = data.pickupLng || null;
+                    const dLat = data.dropoffLat || null; const dLng = data.dropoffLng || null;
+                    const calcPrice = data.price || data.calculatedPrice || data.total || '-';
+
                     html += `
-                        <div class="driver-item" style="border-left: 4px solid ${statusColor}; opacity: 0.85;">
+                        <div class="driver-item" style="border-left: 4px solid ${statusColor}; opacity: 0.9;">
                             <div class="driver-item-header">
                                 <strong>${data.customerName || data.name || 'Zákazník'}</strong>
                                 <span style="color:${statusColor}; font-size:11px; font-weight:bold;">${data.status}</span>
                             </div>
-                            <div style="font-size:11px; margin-bottom:8px; color:var(--text-muted);">
-                                Čas doručení/zrušení: ${data.time || 'Neznámý'}<br>
-                                Vyřizoval: ${data.driverName || 'Nezadáno'}
+                            <div style="font-size:13px; margin-bottom:8px; line-height: 1.4;">
+                                📍 <strong>Od:</strong> ${data.pickup}<br>
+                                🏁 <strong>Do:</strong> ${data.dropoff || 'Nezadáno'}<br>
+                                💰 <strong>Cena:</strong> ${calcPrice} Kč<br>
+                                <span style="font-size:11px; color:var(--text-muted);">Čas: ${data.time || 'Neznámý'} | Vyřizoval: ${data.driverName || 'Nezadáno'}</span>
                             </div>
-                            <button class="btn-delete" onclick="deleteGlobalOrder('${doc.id}')" style="background:#cbd5e1; color:#333; width:100%;">Odstranit z historie</button>
+                            <div class="admin-btn-group">
+                                <button class="btn-admin-action btn-admin-map" onclick="viewCustomerRoute(${pLat}, ${pLng}, ${dLat}, ${dLng})">🗺️ Prohlédnout trasu jízdy</button>
+                                <button class="btn-delete" onclick="deleteGlobalOrder('${doc.id}')" style="background:#cbd5e1; color:#333; margin:0; width:auto; padding:8px 14px;">Odstranit</button>
+                            </div>
                         </div>`;
                 });
+                html += '</div>';
                 container.innerHTML = html;
             });
     }
 
-    // Společná funkce pro mazání objednávek (Aktivních i v Historii)
+    // Společná funkce pro mazání objednávek
     async function deleteGlobalOrder(docId) {
         if (!confirm("Opravdu chcete tento záznam objednávky trvale smazat?")) return;
         try {
@@ -2087,8 +2179,9 @@
         }
     }
 
-    // 3. Evidence uživatelů
+    // 4. Registrovaní zákazníci
     function openAdminUsers() {
+        prepareAdminView();
         showSection('section-admin-users');
         const container = document.getElementById('admin-users-list');
         container.innerHTML = '<p style="font-size:13px; color:var(--text-muted);">Načítám uživatele z databáze...</p>';
@@ -2097,24 +2190,36 @@
 
         adminUsersListener = db.collection("system_users").onSnapshot(snapshot => {
             container.innerHTML = '';
-            if (snapshot.empty) { container.innerHTML = '<p style="font-size:13px; font-style:italic;">Zatím nejsou zaregistrováni žádní zákazníci.</p>'; return; }
+            if (snapshot.empty) { container.innerHTML = '<div class="admin-fullscreen-box"><p style="font-size:13px; font-style:italic;">Zatím nejsou zaregistrováni žádní zákazníci.</p></div>'; return; }
             
-            let html = '';
+            let html = '<div class="admin-fullscreen-box">';
             snapshot.forEach(doc => {
                 const data = doc.data();
+                const userPhone = data.phone || '';
+                const userEmail = data.email || data.username || '';
+                const regLat = data.registeredLat || data.lat || null;
+                const regLng = data.registeredLng || data.lng || null;
+
                 html += `
                     <div class="driver-item">
                         <div class="driver-item-header">
-                            <strong>${data.name || data.fullname || 'Neznámé jméno'}</strong>
-                            <span style="color:var(--driver-blue); font-size:12px; font-weight:bold;">📞 ${data.phone || 'Bez čísla'}</span>
+                            <strong style="font-size:15px;">${data.name || data.fullname || 'Neznámé jméno'}</strong>
+                            <span style="color:var(--text-muted); font-size:11px;">Reg: ${data.registeredAt || 'Neznámý čas'}</span>
                         </div>
-                        <div style="font-size:11px; margin-bottom:8px; color:var(--text-muted);">
-                            Login/Email: ${data.email || data.username || 'Nezadáno'}<br>
-                            Registrace: ${data.registeredAt || 'Neznámý čas'}
+                        <div style="font-size:13px; margin: 8px 0; color:#334155;">
+                            📧 <strong>Email:</strong> ${userEmail || 'Neuveden'}<br>
+                            📞 <strong>Telefon:</strong> ${userPhone || 'Bez čísla'}<br>
+                            📍 <strong>Poloha při registraci:</strong> ${regLat && regLng ? `${regLat.toFixed(5)}, ${regLng.toFixed(5)}` : 'Neznámá'}
                         </div>
-                        <button class="btn-delete" onclick="deleteGlobalUser('${doc.id}', '${data.name || 'zákazníka'}')" style="width:100%;">Smazat účet zákazníka</button>
+                        <div class="admin-btn-group">
+                            ${userPhone ? `<a href="tel:${userPhone}" class="btn-admin-action btn-admin-call">📞 Volat zákazníka</a>` : ''}
+                            ${userEmail ? `<a href="mailto:${userEmail}" class="btn-admin-action btn-admin-email">✉️ Napsat Email</a>` : ''}
+                            ${regLat && regLng ? `<a href="https://www.google.com/maps?q=${regLat},${regLng}" target="_blank" class="btn-admin-action btn-admin-map">🗺️ Poloha na Google Maps</a>` : ''}
+                            <button class="btn-delete" onclick="deleteGlobalUser('${doc.id}', '${data.name || 'zákazníka'}')" style="margin:0; width:auto; padding:8px 14px; margin-left:auto;">Smazat účet</button>
+                        </div>
                     </div>`;
             });
+            html += '</div>';
             container.innerHTML = html;
         });
     }
