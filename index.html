@@ -15,6 +15,17 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
     <style>
+        * {
+    box-sizing: border-box;
+}
+/* Pojistka proti horizontálnímu přetečení na mobilu */
+@media only screen and (max-width: 768px) {
+    html, body {
+        overflow-x: hidden !important;
+        width: 100% !important;
+        position: relative;
+    }
+}
         :root {
             --green-primary: #15803d;
             --green-light: #22c55e;
@@ -33,9 +44,10 @@
         #app-container { display: flex; height: 100dvh; width: 100vw; flex-direction: row; overflow: hidden; position: relative; }
         #panel { width: 420px; height: 100%; background: white; box-shadow: 4px 0 15px rgba(0,0,0,0.1); z-index: 1000; display: flex; flex-direction: column; flex-shrink: 0; }
 body.admin-mode #panel{
-    width:100vw !important;
-    max-width:100vw !important;
-    height:100vh !important;
+    width:100% !important;
+    max-width:100% !important;
+    padding: 10px;
+    height: auto !important;
 }
 /* Toto platí pouze pro zařízení s šířkou obrazovky do 768 pixelů (mobily a menší tablety) */
 @media only screen and (max-width: 768px) {
@@ -569,26 +581,24 @@ body.admin-mode #app-container{
     }
 
     // Automatický přepočet výšky mapy podle toho, jestli vyskočí/zmizí navigační lišta
-    const topPanelObserver = new ResizeObserver(() => {
-        if(document.body.classList.contains('taxameter-active')) {
-            const panelHeight = document.getElementById('taxameter-top-panel').offsetHeight;
-            const mapElm = document.getElementById('map');
-            
-            // Profesionální navigace (Track-Up) vyžaduje větší plátno do šířky (aby neprosvítaly rohy) 
-            // a posun fyzického středu plátna s autíčkem do spodní třetiny obrazovky.
-            mapElm.style.left = '-25vw';
-            mapElm.style.width = '150vw';
-            
-            const availableHeight = window.innerHeight - panelHeight;
-            const mapHeight = availableHeight * 1.8; // Zvětšené plátno na výšku pro bleed při rotaci
-            const topOffset = panelHeight - (availableHeight * 0.2); // Vhodný posun plátna výš
-            
-            mapElm.style.top = topOffset + 'px';
-            mapElm.style.height = mapHeight + 'px';
-            
-            if (typeof map !== 'undefined') map.invalidateSize();
-        }
-    });
+    // Najdi v JS funkci topPanelObserver a uprav ji:
+const topPanelObserver = new ResizeObserver(() => {
+    if(document.body.classList.contains('taxameter-active')) {
+        const panelHeight = document.getElementById('taxameter-top-panel').offsetHeight;
+        const mapElm = document.getElementById('map');
+        
+        // Místo 150vw a -25vw použij bezpečnější hodnoty
+        mapElm.style.left = '0';
+        mapElm.style.width = '100%'; 
+        
+        const availableHeight = window.innerHeight - panelHeight;
+        // Ponecháme mapu tak, aby vyplnila zbytek obrazovky
+        mapElm.style.top = panelHeight + 'px';
+        mapElm.style.height = availableHeight + 'px';
+        
+        if (typeof map !== 'undefined') map.invalidateSize();
+    }
+});
     window.addEventListener('DOMContentLoaded', () => {
         topPanelObserver.observe(document.getElementById('taxameter-top-panel'));
     });
