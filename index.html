@@ -37,7 +37,22 @@ body.admin-mode #panel{
     max-width:100vw !important;
     height:100vh !important;
 }
+/* Toto platí pouze pro zařízení s šířkou obrazovky do 768 pixelů (mobily a menší tablety) */
+@media only screen and (max-width: 768px) {
+    
+    body.admin-mode #app-container {
+        display: block !important;
+        overflow-y: auto !important; /* Povolí rolování na mobilu */
+        height: auto !important;     /* Umožní kontejneru přizpůsobit se výšce obsahu */
+    }
 
+    body.admin-mode #panel {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        height: auto !important;     /* Přepne z fixní výšky na automatickou */
+        min-height: 100vh;           /* Zajistí, že panel pokryje alespoň celou obrazovku */
+    }
+}
 body.admin-mode #map{
     display:none !important;
 }
