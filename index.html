@@ -32,6 +32,19 @@
         
         #app-container { display: flex; height: 100dvh; width: 100vw; flex-direction: row; overflow: hidden; position: relative; }
         #panel { width: 420px; height: 100%; background: white; box-shadow: 4px 0 15px rgba(0,0,0,0.1); z-index: 1000; display: flex; flex-direction: column; flex-shrink: 0; }
+body.admin-mode #panel{
+    width:100vw !important;
+    max-width:100vw !important;
+    height:100vh !important;
+}
+
+body.admin-mode #map{
+    display:none !important;
+}
+
+body.admin-mode #app-container{
+    display:block !important;
+}
         
         .header { background: #0f172a; padding: 15px 20px; color: white; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; border-bottom: 4px solid var(--green-light); }
         .header h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--green-light); cursor: pointer; user-select: none; }
@@ -814,8 +827,7 @@
             } 
         }
     }
-
-    // --- NOVÁ FUNKCE PRO SPRAVNOU INICIALIZACI A NAČTENÍ EVIDENCE Z MENU ---
+ // --- NOVÁ FUNKCE PRO SPRAVNOU INICIALIZACI A NAČTENÍ EVIDENCE Z MENU ---
     function openAdminEvidence() {
         showSection('section-admin');
         loadDriversList();
@@ -823,9 +835,41 @@
     }
 
     function showSection(sectionId) {
-        document.querySelectorAll('.panel-content').forEach(el => el.classList.remove('active'));
-        document.getElementById(sectionId).classList.add('active');
+
+    document.querySelectorAll('.panel-content').forEach(el => el.classList.remove('active'));
+
+    document.getElementById(sectionId).classList.add('active');
+
+    const map = document.getElementById('map');
+    const panel = document.getElementById('panel');
+
+    const adminSections = [
+        'section-admin-menu',
+        'section-admin',
+        'section-admin-active-orders',
+        'section-admin-history',
+        'section-admin-users'
+    ];
+
+    if (adminSections.includes(sectionId)) {
+        document.body.classList.add("admin-mode");
+        map.style.display = "none";
+
+        panel.style.width = "100vw";
+        panel.style.maxWidth = "100vw";
+        panel.style.flex = "1";
+
+    } else {
+
+        document.body.classList.remove("admin-mode");
+        map.style.display = "";
+
+        panel.style.width = "420px";
+        panel.style.maxWidth = "";
+        panel.style.flex = "";
+
     }
+}
 
     function toTitleCase(str) {
         return str.replace(/\w\S*/g, function(txt) {
@@ -875,6 +919,7 @@
             if (!found) document.getElementById('login-error').style.display = 'block';
         } catch (err) { alert("Chyba DB:\n" + err.message); }
     }
+   
     
     function logoutDriver() { 
         localStorage.removeItem('taxi_green_driver_logged'); 
