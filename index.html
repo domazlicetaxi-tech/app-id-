@@ -47,7 +47,7 @@ body.admin-mode #panel{
     width:100% !important;
     max-width:100% !important;
     padding: 10px;
-    height: auto !important;
+    height: 100% !important;
 }
 /* Toto platí pouze pro zařízení s šířkou obrazovky do 768 pixelů (mobily a menší tablety) */
 @media only screen and (max-width: 768px) {
@@ -71,6 +71,7 @@ body.admin-mode #map{
 
 body.admin-mode #app-container{
     display:block !important;
+    overflow-y: auto !important;
 }
         
         .header { background: #0f172a; padding: 15px 20px; color: white; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; border-bottom: 4px solid var(--green-light); }
@@ -469,11 +470,41 @@ body.admin-mode #app-container{
         </div>
 
         <!-- ADMIN: REGISTROVANÍ ZÁKAZNÍCI -->
-        <div id="section-admin-users" class="panel-content">
-            <button class="btn-action" onclick="showSection('section-admin-menu')" style="margin-bottom:15px; background:#64748b; margin-top: 0;">⬅ Zpět do menu administrace</button>
-            <div class="admin-title">Evidence registrovaných zákazníků</div>
-            <div id="admin-users-list"></div>
-        </div>
+        <!-- NOVÝ HTML KÓD -->
+<div id="section-admin-users" class="panel-content">
+    <button class="btn-action" onclick="showSection('section-admin-menu')" style="margin-bottom:15px; background:#64748b; margin-top: 0;">⬅ Zpět do menu administrace</button>
+    <div class="admin-title">Evidence registrovaných zákazníků</div>
+
+    <!-- Ovládací prvky, vyhledávání a filtry -->
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; align-items: center;">
+        <input type="text" id="user-search" placeholder="🔍 Hledat jméno, tel., e-mail..." oninput="applyUsersFilters()" style="flex: 1; min-width: 200px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+        
+        <label style="font-size: 12px;">Od: <input type="date" id="user-date-from" onchange="applyUsersFilters()" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></label>
+        <label style="font-size: 12px;">Do: <input type="date" id="user-date-to" onchange="applyUsersFilters()" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></label>
+        
+        <button class="btn-action" onclick="resetUsersFilters()" style="background: #64748b; padding: 8px 12px; margin: 0; width: auto;">Reset</button>
+        <button class="btn-delete" onclick="deleteSelectedUsers()" style="padding: 8px 12px; width: auto; margin: 0;">🗑️ Smazat vybrané</button>
+    </div>
+
+    <!-- Tabulka pro zobrazení dat -->
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+            <thead>
+                <tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1;">
+                    <th style="padding: 10px;">Datum registrace</th>
+                    <th style="padding: 10px;">Jméno a příjmení</th>
+                    <th style="padding: 10px;">Kontakty</th>
+                    <th style="padding: 10px;">Zařízení</th>
+                    <th style="padding: 10px; text-align: center;">Poloha</th>
+                    <th style="padding: 10px; text-align: center;">Akce</th>
+                </tr>
+            </thead>
+            <tbody id="stats-table-body">
+                <tr><td colspan="6" style="padding: 15px; text-align: center;">Načítám data...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
 
         <div id="section-orders" class="panel-content">
             <button class="btn-logout" onclick="showSection('section-app')" style="width:100%; margin-bottom:15px; background:#e2e8f0; color:#333;">⬅ Zpět na dispečink</button>
@@ -2303,6 +2334,181 @@ const topPanelObserver = new ResizeObserver(() => {
             alert("Chyba při mazání uživatele: " + error.message);
         }
     }
+// ==================================================
+// REGISTROVANÍ ZÁKAZNÍCI (SPUŠTĚNÍ PO STISKNUTÍ TLAČÍTKA)
+// ==================================================
+
+// Tato funkce se zavolá po kliknutí na tlačítko "👥 Registrovaní zákazníci"
+function openAdminUsers() {
+    showSection('section-admin-users'); // 1. Otevře / zobrazí sekce v administraci
+    loadUsersData();                     // 2. Spustí načítání dat z Firebase
+}
+
+// Globální proměnná pro uchování dat
+let allUsersData = [];
+
+// Inicializace dat z Firebase v reálném čase
+function loadUsersData() {
+    if (typeof db === "undefined") {
+        console.error("Firebase db není inicializována!");
+        return;
+    }
+
+    db.collection("registered_customers").orderBy("date", "desc").onSnapshot((snapshot) => {
+        allUsersData = [];
+        snapshot.forEach((doc) => {
+            let data = doc.data();
+            data.id = doc.id;
+            allUsersData.push(data);
+        });
+        applyUsersFilters();
+    }, (error) => {
+        console.error("Chyba při stahování dat pro dispečink: ", error);
+        const tbody = document.getElementById("stats-table-body");
+        if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:red;">Chyba při načítání dat.</td></tr>`;
+    });
+}
+
+// FILTRY A VYKRESLOVÁNÍ
+function filterData(dataArray, dateFromId, dateToId, searchId) {
+    let fromVal = document.getElementById(dateFromId) ? document.getElementById(dateFromId).value : ""; 
+    let toVal = document.getElementById(dateToId) ? document.getElementById(dateToId).value : ""; 
+    let searchVal = document.getElementById(searchId) ? document.getElementById(searchId).value.toLowerCase() : "";
+    
+    return dataArray.filter(item => {
+        let matchSearch = true;
+        if (searchVal) {
+            let name = (item.fullName || item.name || "").toLowerCase(); 
+            let phone = (item.phone || "").toLowerCase(); 
+            let email = (item.email || "").toLowerCase();
+            matchSearch = name.includes(searchVal) || phone.includes(searchVal) || email.includes(searchVal);
+        }
+        
+        let matchDate = true;
+        if (fromVal || toVal) {
+            if (item.date) {
+                let d = new Date(item.date.seconds * 1000); 
+                d.setHours(0,0,0,0);
+                if (fromVal) { 
+                    let f = new Date(fromVal); f.setHours(0,0,0,0); 
+                    if (d < f) matchDate = false; 
+                }
+                if (toVal) { 
+                    let t = new Date(toVal); t.setHours(0,0,0,0); 
+                    if (d > t) matchDate = false; 
+                }
+            } else { 
+                matchDate = false; 
+            }
+        }
+        return matchSearch && matchDate;
+    });
+}
+
+function applyUsersFilters() { 
+    let filtered = filterData(allUsersData, "user-date-from", "user-date-to", "user-search"); 
+    renderUsersTable(filtered); 
+}
+
+function resetUsersFilters() { 
+    if (document.getElementById("user-date-from")) document.getElementById("user-date-from").value = ""; 
+    if (document.getElementById("user-date-to")) document.getElementById("user-date-to").value = ""; 
+    if (document.getElementById("user-search")) document.getElementById("user-search").value = ""; 
+    renderUsersTable(allUsersData); 
+}
+
+function renderUsersTable(dataArray) {
+    const tbody = document.getElementById("stats-table-body"); 
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    
+    if (dataArray.length === 0) { 
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 15px;">Žádní zákazníci nenalezeni.</td></tr>`; 
+        return; 
+    }
+    
+    dataArray.forEach(data => {
+        let dateHtml = "Neznámý čas";
+        if (data.date) {
+            let d = new Date(data.date.seconds * 1000);
+            dateHtml = `${d.toLocaleDateString('cs-CZ')}<br><span style="font-size:11px; color:#64748b;">${d.toLocaleTimeString('cs-CZ')}</span>`;
+        }
+
+        let locationHtml = "-";
+        if (data.latitude && data.longitude) {
+            locationHtml = `<a href="https://maps.google.com/?q=${data.latitude},${data.longitude}" target="_blank" style="color:#0284c7; text-decoration:none; font-weight:bold;">🗺️ Mapa</a><br><span style="font-size:10px; color:#64748b;">${data.location || ""}</span>`;
+        } else if (data.location) {
+            locationHtml = data.location;
+        }
+        
+        let tr = document.createElement("tr");
+        tr.style.borderBottom = "1px solid #e2e8f0";
+        tr.innerHTML = `
+            <td style="padding:8px;">${dateHtml}</td>
+            <td style="padding:8px; font-weight: bold;">${data.fullName || data.name || "-"}</td>
+            <td style="padding:8px;">
+                <a href="tel:${data.phone}" style="color:#0284c7; text-decoration:none;">📞 ${data.phone || "-"}</a><br>
+                <a href="mailto:${data.email}" style="color:#0284c7; text-decoration:none;">✉️ ${data.email || "-"}</a>
+            </td>
+            <td style="padding:8px;">${data.device || "N/A"}</td>
+            <td style="padding:8px; text-align:center;">${locationHtml}</td>
+            <td style="padding:8px; text-align:center;">
+                <input type="checkbox" class="user-select-cb" value="${data.id}" title="Vybrat zákazníka" style="margin-right:8px;">
+                <button onclick="editUserRecord('${data.id}', '${data.fullName || data.name || ''}', '${data.phone || ''}', '${data.email || ''}')" style="background:none; border:none; cursor:pointer; font-size:15px;" title="Upravit">✏️</button>
+                <button onclick="deleteRecord('registered_customers', '${data.id}')" style="background:none; border:none; cursor:pointer; font-size:15px;" title="Smazat">🗑️</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+// AKCE (ÚPRAVA A MAZÁNÍ)
+window.editUserRecord = function(docId, name, phone, email) {
+    let newPhone = prompt(`Upravit telefon pro: ${name}\nNová hodnota:`, phone);
+    if (newPhone === null) return;
+    
+    let newEmail = prompt(`Upravit e-mail pro: ${name}\nNová hodnota:`, email);
+    if (newEmail === null) return;
+    
+    db.collection('registered_customers').doc(docId).update({ 
+        phone: newPhone, 
+        email: newEmail 
+    })
+    .then(() => alert("Zákazník úspěšně upraven."))
+    .catch(e => alert("Chyba při úpravě: " + e));
+};
+
+function deleteRecord(collectionName, docId) {
+    if (confirm("Opravdu chcete tento záznam trvale smazat?")) { 
+        db.collection(collectionName).doc(docId).delete().catch(e => alert("Chyba: " + e)); 
+    }
+}
+
+async function deleteSelectedUsers() {
+    const checkboxes = document.querySelectorAll('.user-select-cb:checked');
+    if (checkboxes.length === 0) return alert("Vyberte alespoň jednoho uživatele ke smazání.");
+    
+    if (!confirm(`Opravdu chcete trvale smazat vybrané uživatele (${checkboxes.length})?`)) return;
+    
+    try {
+        let batches = [], currentBatch = db.batch(), count = 0;
+        checkboxes.forEach((cb) => { 
+            let docRef = db.collection('registered_customers').doc(cb.value); 
+            currentBatch.delete(docRef); 
+            count++; 
+            if (count === 500) { 
+                batches.push(currentBatch.commit()); 
+                currentBatch = db.batch(); 
+                count = 0; 
+            } 
+        });
+        if (count > 0) batches.push(currentBatch.commit()); 
+        await Promise.all(batches); 
+        alert(`Smazáno ${checkboxes.length} uživatelů.`); 
+    } catch (err) { 
+        alert("Chyba při hromadném mazání."); 
+    }
+}
 </script>
 </body>
 </html>
