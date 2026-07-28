@@ -198,6 +198,69 @@ body.admin-mode #app-container{
         body.taxameter-active #map {
             position: fixed !important; z-index: 1 !important;
         }
+
+        /* --- HISTORIE HLEDANÝCH TRAS (Zweb integrace) --- */
+        :root {
+            --green-primary: #28a745;
+            --danger-red: #dc3545;
+            --border-color: #dee2e6;
+        }
+
+        .admin-table-container {
+            overflow-x: auto;
+            margin-top: 15px;
+        }
+
+        .admin-table-container table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: sans-serif;
+            font-size: 14px;
+        }
+
+        .admin-table-container th, 
+        .admin-table-container td {
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .admin-table-container th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+
+        .admin-link {
+            color: #0056b3;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .admin-link:hover {
+            text-decoration: underline;
+        }
+
+        .btn-action-group {
+            display: flex;
+            justify-content: center;
+        }
+
+        .admin-tab-btn {
+            background-color: var(--green-primary);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 5px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .admin-filters { display: flex; gap: 10px; align-items: center; background: #f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px; flex-wrap: wrap;}
+        .admin-filters input { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; }
+        .admin-filters input:focus { border-color: var(--green-primary); }
+        .admin-filters .btn-filter-reset { background: #64748b; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -399,7 +462,6 @@ body.admin-mode #app-container{
         </div>
 
         <!-- NOVÉ MENU ADMINISTRACE -->
-        <!-- NOVÉ MENU ADMINISTRACE -->
         <div id="section-admin-menu" class="panel-content">
             <button class="btn-action" onclick="closeAdmin()" style="margin-bottom:15px; background:#64748b; margin-top: 0;">⬅ Zpět do aplikace</button>
             <div class="admin-title" style="margin-top: 20px; font-size: 16px;">Hlavní administrace systému</div>
@@ -408,6 +470,7 @@ body.admin-mode #app-container{
             <button class="btn-action" onclick="openAdminActiveOrders()" style="background:var(--warning-amber); color:black; padding: 16px; font-size: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">🟢 Správa aktivních objednávek</button>
             <button class="btn-action" onclick="openAdminHistory()" style="background:#475569; padding: 16px; font-size: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">📚 Historie všech jízd</button>
             <button class="btn-action" onclick="openAdminUsers()" style="background:var(--green-primary); padding: 16px; font-size: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">👥 Registrovaní zákazníci</button>
+            <button class="btn-action" onclick="openAdminSearchHistory()" style="background:#7c3aed; padding: 16px; font-size: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">🔍 Historie hledaných tras</button>
         </div>
 
         <div id="section-admin" class="panel-content">
@@ -419,6 +482,7 @@ body.admin-mode #app-container{
                 <label style="font-size:11px; margin-bottom:2px;">Jméno (Toto uvidí zákazník)</label>
                 <input type="text" id="new-driver-firstname" placeholder="Např. Pavel">
             </div>
+            
             <div style="margin-bottom: 15px;">
                 <label style="font-size:11px; margin-bottom:2px;">Příjmení</label>
                 <input type="text" id="new-driver-lastname" placeholder="Např. Novák">
@@ -453,6 +517,44 @@ body.admin-mode #app-container{
 
             <div class="admin-title" style="margin-top: 25px;">Seznam zaevidovaných vozidel</div>
             <div id="admin-vehicles-list"></div>
+        </div>
+
+        <!-- SEKCE: HISTORIE HLEDANÝCH TRAS -->
+        <div id="section-admin-search-history" class="panel-content">
+            <button class="btn-action" onclick="showSection('section-admin-menu')" style="margin-bottom:15px; background:#64748b; margin-top: 0;">⬅ Zpět do menu administrace</button>
+            
+            <div class="admin-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-bottom: none; margin-bottom: 0;">
+                Historie hledaných tras
+                <button class="btn-delete" style="font-size: 13px; padding: 6px 12px; background: white; border: 1px solid var(--danger-red); color: var(--danger-red); border-radius: 4px;" onclick="deleteAllRecords('search_history')">🗑️ Smazat historii</button>
+            </div>
+            
+            <div class="admin-filters" style="margin-top: 10px;">
+                <label style="font-size: 12px; margin-right: -5px; color: var(--text-dark);">Od:</label>
+                <input type="date" id="hist-date-from" onchange="applyHistoryFilters()">
+                <label style="font-size: 12px; margin-right: -5px; margin-left: 5px; color: var(--text-dark);">Do:</label>
+                <input type="date" id="hist-date-to" onchange="applyHistoryFilters()">
+                <input type="text" id="hist-search" placeholder="Hledat jméno, tel., e-mail..." style="width: 200px;" oninput="applyHistoryFilters()">
+                <button class="btn-filter-reset" onclick="resetHistoryFilters()">Zrušit filtr</button>
+            </div>
+
+            <div class="admin-table-container">
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+                    <thead>
+                        <tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1;">
+                            <th style="padding: 10px; border: 1px solid #cbd5e1;">Datum<br><span style="font-weight:normal;font-size:11px;">Čas</span></th>
+                            <th style="padding: 10px; border: 1px solid #cbd5e1;">Zákazník</th>
+                            <th style="padding: 10px; border: 1px solid #cbd5e1;">Kontakt</th>
+                            <th style="padding: 10px; border: 1px solid #cbd5e1;">Hledaná trasa</th>
+                            <th style="padding: 10px; border: 1px solid #cbd5e1;">Vzdál.<br><span style="font-weight:normal;font-size:11px;">Cena</span></th>
+                            <th style="padding: 10px; border: 1px solid #cbd5e1;">Poloha<br><span style="font-weight:normal;font-size:11px;">(GPS)</span></th>
+                            <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center;">Akce</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table-body">
+                        <tr><td colspan="7" style="text-align:center; color:gray; padding: 20px;">Načítám historii tras...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
 <!-- ADMIN: AKTIVNÍ OBJEDNÁVKY -->
@@ -904,7 +1006,8 @@ const topPanelObserver = new ResizeObserver(() => {
         'section-admin',
         'section-admin-active-orders',
         'section-admin-history',
-        'section-admin-users'
+        'section-admin-users',
+        'section-admin-search-history'
     ];
 
     if (adminSections.includes(sectionId)) {
@@ -2140,17 +2243,22 @@ const topPanelObserver = new ResizeObserver(() => {
 
     // Funkce pro vykreslení zákazníkovy trasy z admin přehledu přímo na mapě
     function viewCustomerRoute(pLat, pLng, dLat, dLng) {
-        if (!pLat || !pLng) return alert("Chybi GPS souřadnice pro vykreslení trasy.");
-        restoreMainMap();
+        if (!pLat || !pLng) return alert("Chybí GPS souřadnice pro vykreslení trasy.");
+        
+        // 1. ZÁSADNÍ OPRAVA: Přepnutí z administrace zpět do hlavní aplikace (odkryje mapu)
+        showSection('section-app');
+        
+        // 2. Vyčištění mapy před vykreslením nové trasy
         clearRoutes();
+        tempMarkers.clearLayers(); 
         
         let pickupLatLng = L.latLng(pLat, pLng);
         map.setView(pickupLatLng, 14);
-        L.marker(pickupLatLng, {icon: iconPickup}).addTo(map).bindPopup("Místo, kde zákazník stál/stojí").openPopup();
+        L.marker(pickupLatLng, {icon: iconPickup}).addTo(tempMarkers).bindPopup("Místo nakládky (Hledaná trasa)").openPopup();
         
         if (dLat && dLng) {
             let dropoffLatLng = L.latLng(dLat, dLng);
-            L.marker(dropoffLatLng, {icon: iconDropoff}).addTo(map);
+            L.marker(dropoffLatLng, {icon: iconDropoff}).addTo(tempMarkers).bindPopup("Cíl cesty");
             
             let rc = L.Routing.control({
                 waypoints: [createWaypoint(pickupLatLng), createWaypoint(dropoffLatLng)],
@@ -2159,6 +2267,9 @@ const topPanelObserver = new ResizeObserver(() => {
             }).addTo(map);
             routingControls.push(rc);
         }
+        
+        // 3. Vynucení překreslení mapy, aby po zobrazení nezůstala "šedá"
+        setTimeout(() => { if (typeof map !== 'undefined') map.invalidateSize(); }, 300);
         
         if (window.innerWidth <= 768) {
             document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
@@ -2279,6 +2390,8 @@ const topPanelObserver = new ResizeObserver(() => {
             alert("Chyba při mazání: " + error.message);
         }
     }
+
+
 
     // 4. Registrovaní zákazníci
     function openAdminUsers() {
@@ -2507,6 +2620,174 @@ async function deleteSelectedUsers() {
         alert(`Smazáno ${checkboxes.length} uživatelů.`); 
     } catch (err) { 
         alert("Chyba při hromadném mazání."); 
+    }
+}
+
+/* --- LOGIKA PRO HISTORII HLEDANÝCH TRAS --- */
+let allHistoryData = [];
+
+function openAdminSearchHistory() {
+    showSection('section-admin-search-history');
+    loadStatistics();
+}
+
+function loadStatistics() {
+    if (!db) {
+        alert("Chyba: Databáze Firebase není připojena.");
+        return;
+    }
+    
+    const hBody = document.getElementById("history-table-body");
+    hBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:gray; padding: 20px;">Načítám data z databáze... ⏳</td></tr>`;
+    
+    db.collection("search_history").get().then(snapshot => {
+        allHistoryData = []; 
+        snapshot.forEach(doc => { 
+            let data = doc.data(); 
+            data.id = doc.id;
+            allHistoryData.push(data); 
+        });
+        
+        // Seřazení záznamů od nejnovějších
+        allHistoryData.sort((a,b) => (b.date ? b.date.seconds : 0) - (a.date ? a.date.seconds : 0)); 
+        
+        applyHistoryFilters();
+        
+    }).catch(error => {
+        console.error("Chyba při načítání Firebase:", error);
+        hBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red; padding: 20px;">Došlo k chybě při stahování dat.</td></tr>`;
+    });
+}
+
+function filterDataHistory(dataArray, dateFromId, dateToId, searchId) {
+    let fromVal = document.getElementById(dateFromId).value; 
+    let toVal = document.getElementById(dateToId).value; 
+    let searchVal = document.getElementById(searchId).value.toLowerCase();
+    
+    return dataArray.filter(item => {
+        let matchSearch = true;
+        if (searchVal) {
+            let name = (item.fullName || item.name || "").toLowerCase(); 
+            let phone = (item.phone || "").toLowerCase(); 
+            let email = (item.email || "").toLowerCase();
+            matchSearch = name.includes(searchVal) || phone.includes(searchVal) || email.includes(searchVal);
+        }
+        let matchDate = true;
+        if (fromVal || toVal) {
+            if (item.date) {
+                let d = new Date(item.date.seconds * 1000); d.setHours(0,0,0,0);
+                if (fromVal) { let f = new Date(fromVal); f.setHours(0,0,0,0); if (d < f) matchDate = false; }
+                if (toVal) { let t = new Date(toVal); t.setHours(0,0,0,0); if (d > t) matchDate = false; }
+            } else { matchDate = false; }
+        }
+        return matchSearch && matchDate;
+    });
+}
+
+function applyHistoryFilters() { 
+    let filtered = filterDataHistory(allHistoryData, "hist-date-from", "hist-date-to", "hist-search"); 
+    renderHistoryTable(filtered); 
+}
+
+function resetHistoryFilters() { 
+    document.getElementById("hist-date-from").value = ""; 
+    document.getElementById("hist-date-to").value = ""; 
+    document.getElementById("hist-search").value = ""; 
+    renderHistoryTable(allHistoryData); 
+}
+
+function formatNameSplit(fullNameStr) {
+    if (!fullNameStr) return "<b>Neznámé</b>";
+    let parts = fullNameStr.trim().split(" "); let fName = parts[0]; let lName = parts.length > 1 ? parts.slice(1).join(" ") : "";
+    return lName ? `<div style="line-height: 1.3;"><b>${fName}</b><br><b>${lName}</b></div>` : `<b>${fName}</b>`;
+}
+
+function renderLocationLink(locStr, lat, lng) {
+    if (!locStr || locStr === "Nelze zjistit" || locStr === "Zařízení nepodporuje GPS") return '<span style="color:gray; font-size:12px;">Neznámá</span>';
+    if(lat && lng) {
+        return `<a href="https://maps.google.com/?q=${lat},${lng}" target="_blank" class="admin-link" style="text-decoration:none;">📍 Mapa</a><br><span style="font-size:10px; color:gray;">${locStr}</span>`;
+    }
+    return `<span style="font-size:11px;">${locStr}</span>`;
+}
+
+function renderHistoryTable(dataArray) {
+    const hBody = document.getElementById("history-table-body"); hBody.innerHTML = "";
+    if (dataArray.length === 0) { hBody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:gray; padding: 20px;">Žádné záznamy nenalezeny.</td></tr>`; return; }
+    
+    dataArray.slice(0, 200).forEach(data => {
+        let dateHtml = data.date ? `${new Date(data.date.seconds * 1000).toLocaleDateString('cs-CZ')}<br><span style="color:gray; font-size:11px;">${new Date(data.date.seconds * 1000).toLocaleTimeString('cs-CZ')}</span>` : "Neznámý čas";
+        
+        let pLat = data.pickupLat || null; let pLng = data.pickupLng || null;
+        let dLat = data.dropoffLat || null; let dLng = data.dropoffLng || null;
+        
+        let tr = document.createElement("tr");
+        tr.style.borderBottom = "1px solid #e2e8f0";
+        tr.innerHTML = `
+            <td style="padding: 10px; border: 1px solid #cbd5e1;">${dateHtml}</td>
+            <td style="padding: 10px; border: 1px solid #cbd5e1;">${formatNameSplit(data.name)}</td>
+            <td style="padding: 10px; border: 1px solid #cbd5e1;"><a href="tel:${data.phone}" class="admin-link" style="color: #0056b3; font-weight: bold; text-decoration: none;">📞 ${data.phone || "-"}</a></td>
+            <td style="padding: 10px; border: 1px solid #cbd5e1; line-height: 1.4;">
+                <b>Z:</b> ${data.pickup}<br><b>Do:</b> ${data.dropoff}<br>
+                <button style="margin-top:6px; background:white; border:1px solid #cbd5e1; padding:4px 8px; font-size:11px; border-radius:4px; font-weight: bold; cursor:pointer;" onclick="viewCustomerRoute(${pLat}, ${pLng}, ${dLat}, ${dLng})">🗺️ Ukázat trasu</button>
+            </td>
+            <td style="padding: 10px; border: 1px solid #cbd5e1;">${data.distance} km<br><b style="color:var(--green-primary);">${data.price} Kč</b></td>
+            <td style="padding: 10px; border: 1px solid #cbd5e1; text-align:center;">${renderLocationLink(data.userLocation, data.userLat, data.userLng)}</td>
+            <td style="padding: 10px; border: 1px solid #cbd5e1; text-align:center;">
+                <div class="btn-action-group" style="display:flex; gap:6px; justify-content:center;">
+                    <button class="btn-edit" title="Editovat" onclick="editHistoryRecord('${data.id}', '${data.name}', '${data.phone}')" style="background:white; border:1px solid #cbd5e1; padding:6px; border-radius:4px; cursor:pointer;">✏️</button>
+                    <button class="btn-delete" title="Smazat" onclick="deleteHistoryRecord('${data.id}')" style="background:white; border:1px solid #cbd5e1; padding:6px; border-radius:4px; cursor:pointer;">🗑️</button>
+                </div>
+            </td>
+        `;
+        hBody.appendChild(tr);
+    });
+}
+
+window.editHistoryRecord = function(docId, name, phone) {
+    let newPhone = prompt(`Upravit zaznamenaný telefon v historii pro zákazníka: ${name}\nNová hodnota:`, phone);
+    if (newPhone !== null) {
+        db.collection('search_history').doc(docId).update({ phone: newPhone })
+            .then(() => { alert("Záznam trasy upraven."); loadStatistics(); })
+            .catch(e => alert("Chyba při úpravě: " + e));
+    }
+};
+
+function deleteHistoryRecord(docId) {
+    if(confirm("Opravdu chcete tento záznam trvale smazat?")) {
+        db.collection('search_history').doc(docId).delete().then(() => {
+            loadStatistics();
+        }).catch(error => {
+            console.error("Chyba při mazání: ", error);
+            alert("Záznam se nepodařilo smazat.");
+        });
+    }
+}
+
+async function deleteAllRecords(collectionName) {
+    if (!db) return;
+    let collectionLabel = collectionName === 'search_history' ? 'HISTORII TRAS' : 'ZÁZNAMY';
+    if (!confirm(`⚠️ VAROVÁNÍ: Opravdu chcete smazat VŠECHNY záznamy pro ${collectionLabel}?`)) return;
+    let password = prompt("Pro potvrzení smazání zadejte heslo administrátora:");
+    if (password !== "26 3654" && password !== "2,6 3654") return alert("Nesprávné heslo.");
+    try {
+        document.body.style.cursor = 'wait'; 
+        const snapshot = await db.collection(collectionName).get();
+        if (snapshot.empty) { alert("Složka je již prázdná."); document.body.style.cursor = 'default'; return; }
+        
+        let batches = [], currentBatch = db.batch(), count = 0;
+        snapshot.docs.forEach((doc) => { 
+            currentBatch.delete(doc.ref); 
+            count++; 
+            if (count === 500) { batches.push(currentBatch.commit()); currentBatch = db.batch(); count = 0; } 
+        });
+        if (count > 0) batches.push(currentBatch.commit()); 
+        await Promise.all(batches); 
+        document.body.style.cursor = 'default'; 
+        alert(`Smazáno ${snapshot.size} záznamů.`); 
+        loadStatistics(); 
+    } catch (err) { 
+        document.body.style.cursor = 'default'; 
+        alert("Chyba při mazání."); 
     }
 }
 </script>
