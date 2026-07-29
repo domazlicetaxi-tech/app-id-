@@ -1715,10 +1715,14 @@ body.admin-mode #app-container{
 
     // --- NOVÁ FUNKCE KDYŽ ZÁKAZNÍK KLIKNE "UŽ JDU" ---
     function startRideAfterUzJdu() {
-        stopAlarm();
-        document.getElementById('btn-customer-on-way').style.display = 'none';
-        
-        if (activeOrderId && db) { db.collection("taxi_orders").doc(activeOrderId).update({ status: "Zákazník nastoupil" }); }
+    stopAlarm();
+    document.getElementById('btn-customer-on-way').style.display = 'none';
+
+    if (activeOrderId && db) {
+        // OPRAVA: Sjednoceno s očekáváním zákaznické aplikace Zweb
+        db.collection("taxi_orders").doc(activeOrderId).update({ status: "Zákazník nastoupil" });
+    }
+    // ...
 
         let dropoffVal = document.getElementById('dropoff').value;
         if (dropoffVal) {
