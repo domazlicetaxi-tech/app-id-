@@ -305,6 +305,8 @@ body.admin-mode #app-container{
 
         <div id="section-app" class="panel-content">
             
+            <button id="btn-back-to-admin" class="btn-action" onclick="returnToAdmin()" style="display: none; background: #7c3aed; margin-bottom: 15px; margin-top: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">⬅ Zpět do administrace (K mapě)</button>
+
             <div id="top-bar-vehicle" style="display: none; background: #e2e8f0; padding: 6px 10px; align-items: center; justify-content: space-between; border-radius: 6px; margin-bottom: 15px; border: 1px solid #cbd5e1; gap: 8px;">
                 <strong id="tb-driver-name" style="color: var(--driver-blue); font-size: 13px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 100px;">-</strong>
                 
@@ -572,7 +574,6 @@ body.admin-mode #app-container{
         </div>
 
         <!-- ADMIN: REGISTROVANÍ ZÁKAZNÍCI -->
-        <!-- NOVÝ HTML KÓD -->
 <div id="section-admin-users" class="panel-content">
     <button class="btn-action" onclick="showSection('section-admin-menu')" style="margin-bottom:15px; background:#64748b; margin-top: 0;">⬅ Zpět do menu administrace</button>
     <div class="admin-title">Evidence registrovaných zákazníků</div>
@@ -972,63 +973,71 @@ const topPanelObserver = new ResizeObserver(() => {
     let locationSharingActive = false;
     window.addEventListener('DOMContentLoaded', () => { checkLoginStatus(); });
 
-    // --- UPRAVENÁ FUNKCE PRO OTEVŘENÍ ADMIN MENU (MÍSTO ROVNOU EVIDENCE) ---
+    // --- UPRAVENÁ FUNKCE PRO OTEVŘENÍ ADMIN MENU (Pamatování hesla přes sessionStorage) ---
     function handleAdminClick() {
         enforceFullscreen();
         clickCount++; clearTimeout(clickTimer); clickTimer = setTimeout(() => { clickCount = 0; }, 400);
         if (clickCount >= 5) { 
             clickCount = 0; 
-            if (prompt("Zadejte administrátorské heslo:") === "26 3654") { 
-                showSection('section-admin-menu'); 
-            } else { 
-                alert("Neplatné heslo."); 
-            } 
+            if (sessionStorage.getItem('admin_logged_in') === 'true') {
+                showSection('section-admin-menu');
+            } else {
+                if (prompt("Zadejte administrátorské heslo:") === "26 3654") { 
+                    sessionStorage.setItem('admin_logged_in', 'true');
+                    showSection('section-admin-menu'); 
+                } else { 
+                    alert("Neplatné heslo."); 
+                } 
+            }
         }
     }
- // --- NOVÁ FUNKCE PRO SPRAVNOU INICIALIZACI A NAČTENÍ EVIDENCE Z MENU ---
+    
+    // --- NOVÁ FUNKCE PRO SPRAVNOU INICIALIZACI A NAČTENÍ EVIDENCE Z MENU ---
     function openAdminEvidence() {
         showSection('section-admin');
         loadDriversList();
         loadVehiclesList();
     }
 
+    let lastAdminSection = null;
+
     function showSection(sectionId) {
+        document.querySelectorAll('.panel-content').forEach(el => el.classList.remove('active'));
+        document.getElementById(sectionId).classList.add('active');
 
-    document.querySelectorAll('.panel-content').forEach(el => el.classList.remove('active'));
+        const map = document.getElementById('map');
+        const panel = document.getElementById('panel');
 
-    document.getElementById(sectionId).classList.add('active');
+        const adminSections = [
+            'section-admin-menu',
+            'section-admin',
+            'section-admin-active-orders',
+            'section-admin-history',
+            'section-admin-users',
+            'section-admin-search-history'
+        ];
 
-    const map = document.getElementById('map');
-    const panel = document.getElementById('panel');
-
-    const adminSections = [
-        'section-admin-menu',
-        'section-admin',
-        'section-admin-active-orders',
-        'section-admin-history',
-        'section-admin-users',
-        'section-admin-search-history'
-    ];
-
-    if (adminSections.includes(sectionId)) {
-        document.body.classList.add("admin-mode");
-        map.style.display = "none";
-
-        panel.style.width = "100vw";
-        panel.style.maxWidth = "100vw";
-        panel.style.flex = "1";
-
-    } else {
-
-        document.body.classList.remove("admin-mode");
-        map.style.display = "";
-
-        panel.style.width = "";
-        panel.style.maxWidth = "";
-        panel.style.flex = "";
-
+        if (adminSections.includes(sectionId)) {
+            lastAdminSection = sectionId;
+            document.body.classList.add("admin-mode");
+            map.style.display = "none";
+            panel.style.width = "100vw";
+            panel.style.maxWidth = "100vw";
+            panel.style.flex = "1";
+        } else {
+            document.body.classList.remove("admin-mode");
+            map.style.display = "";
+            panel.style.width = "";
+            panel.style.maxWidth = "";
+            panel.style.flex = "";
+        }
     }
-}
+
+    // --- FUNKCE PRO NÁVRAT DO ADMINU Z MAPY ---
+    function returnToAdmin() {
+        document.getElementById('btn-back-to-admin').style.display = 'none';
+        showSection(lastAdminSection || 'section-admin-menu');
+    }
 
     function toTitleCase(str) {
         return str.replace(/\w\S*/g, function(txt) {
@@ -1079,7 +1088,6 @@ const topPanelObserver = new ResizeObserver(() => {
         } catch (err) { alert("Chyba DB:\n" + err.message); }
     }
    
-    
     function logoutDriver() { 
         localStorage.removeItem('taxi_green_driver_logged'); 
         localStorage.removeItem('taxi_green_driver_name'); 
@@ -1092,7 +1100,10 @@ const topPanelObserver = new ResizeObserver(() => {
         checkLoginStatus(); 
     }
     
-    function closeAdmin() { checkLoginStatus(); }
+    function closeAdmin() { 
+        document.getElementById('btn-back-to-admin').style.display = 'none';
+        checkLoginStatus(); 
+    }
 
     function showVehicleSelection() {
         document.getElementById('top-bar-vehicle').style.display = 'none';
@@ -1163,7 +1174,6 @@ const topPanelObserver = new ResizeObserver(() => {
             showVehicleSelection();
         }
     }
-
 
     let adminDriversListener = null;
     let adminVehiclesListener = null;
@@ -1328,7 +1338,6 @@ const topPanelObserver = new ResizeObserver(() => {
                     const waitingBtn = document.getElementById('btn-waiting-for-customer');
                     const onWayBtn = document.getElementById('btn-customer-on-way');
 
-                    // Pokud ještě není zobrazené zelené tlačítko, spustíme alarm
                     if (onWayBtn && onWayBtn.style.display !== 'block') {
                         startAlarm();
                         if (waitingBtn) waitingBtn.style.display = 'none';
@@ -1409,7 +1418,8 @@ const topPanelObserver = new ResizeObserver(() => {
                 routeWhileDragging: true,
                 lineOptions: { styles: [{ color: '#2563eb', opacity: 0.8, weight: 6 }] },
                 show: false,
-                addWaypoints: false
+                addWaypoints: false,
+                createMarker: function() { return null; }
             }).addTo(map);
             routingControls.push(rc);
         };
@@ -1598,7 +1608,6 @@ const topPanelObserver = new ResizeObserver(() => {
                 map.stopLocate(); clearRoutes(); map.off('locationfound'); 
                 hideNavigationInstructionsUI();
                 
-                // --- NOVINKA: Zobrazíme tlačítko, že čekáme ---
                 document.getElementById('btn-waiting-for-customer').style.display = 'block';
 
             }).catch(err => alert("Chyba při odesílání: " + err.message));
@@ -1611,7 +1620,6 @@ const topPanelObserver = new ResizeObserver(() => {
         document.getElementById('btn-customer-on-way').style.display = 'none';
 
         if (activeOrderId && db) {
-            // Změníme status, aby na to dispečink ani aplikace znovu nereagovaly
             db.collection("taxi_orders").doc(activeOrderId).update({ status: "Zákazník ve voze" });
         }
 
@@ -1690,6 +1698,7 @@ const topPanelObserver = new ResizeObserver(() => {
                     waypoints: [ createWaypoint(e.latlng), createWaypoint(coordsData.dropoff) ], 
                     router: getRouter(2), 
                     show: false, addWaypoints: false,
+                    createMarker: function() { return null; },
                     routeLine: function(route) { return L.Routing.line(route, { styles: [{color: 'transparent', opacity: 0}] }); }
                 }).addTo(map); 
                 
@@ -1793,6 +1802,7 @@ const topPanelObserver = new ResizeObserver(() => {
                     waypoints: [ createWaypoint(startLatLng), createWaypoint(finalTargetCoords) ], 
                     router: getRouter(2), 
                     show: false, addWaypoints: false,
+                    createMarker: function() { return null; },
                     routeLine: function(route) { return L.Routing.line(route, { styles: [{color: 'transparent', opacity: 0}] }); }
                 }).addTo(map);
                 
@@ -1931,7 +1941,6 @@ const topPanelObserver = new ResizeObserver(() => {
         window.print();
     }
 
-    // --- LOGIKA PRO DISPEČINK A VÝPOČTY (BEZE ZMĚNY) ---
     let map = L.map('map', { rotate: true, touchZoom: true, zoomControl: false }).setView([49.4398, 12.9304], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -2059,6 +2068,7 @@ const topPanelObserver = new ResizeObserver(() => {
     }
 
     function resetActionButtons() {
+        document.getElementById('btn-back-to-admin').style.display = 'none';
         document.getElementById('btn-calc').style.display = 'block';
         document.getElementById('btn-dispatch').style.display = 'none';
         document.getElementById('btn-stop-nav').style.display = 'none';
@@ -2090,7 +2100,7 @@ const topPanelObserver = new ResizeObserver(() => {
         allWaypoints.push(createWaypoint(dLatlng));
 
         let rc = L.Routing.control({
-            waypoints: allWaypoints, router: getRouter(allWaypoints.length), routeWhileDragging: true, show: false, addWaypoints: false, lineOptions: { styles: [{ color: '#15803d', opacity: 0.8, weight: 6 }] }
+            waypoints: allWaypoints, router: getRouter(allWaypoints.length), routeWhileDragging: true, show: false, addWaypoints: false, createMarker: function() { return null; }, lineOptions: { styles: [{ color: '#15803d', opacity: 0.8, weight: 6 }] }
         }).addTo(map);
         routingControls.push(rc);
 
@@ -2164,6 +2174,7 @@ const topPanelObserver = new ResizeObserver(() => {
                 let rc = L.Routing.control({
                     waypoints: [ createWaypoint(e.latlng), createWaypoint(coordsData.pickup) ],
                     router: getRouter(2), show: false, addWaypoints: false,
+                    createMarker: function() { return null; },
                     routeLine: function(route) { return L.Routing.line(route, { styles: [{color: 'transparent', opacity: 0}] }); }
                 }).addTo(map);
                 
@@ -2207,13 +2218,10 @@ const topPanelObserver = new ResizeObserver(() => {
         if (coordsData.pickup) { map.setView(coordsData.pickup, 14); }
     }
 
-    // --- NOVÁ FUNKCE PRO SKRÝVÁNÍ MAPY A FULLSCREEN PŘEHLEDY V ADMINU ---
     function prepareAdminView() {
-        // Skryje hlavní mapu a roztáhne sekce na celé okno
         const mapEl = document.getElementById('map');
         if (mapEl) mapEl.style.display = 'none';
         
-        // Přidáme dynamický styl pro přehlednost oken v administraci
         if (!document.getElementById('admin-full-window-style')) {
             const style = document.createElement('style');
             style.id = 'admin-full-window-style';
@@ -2230,7 +2238,6 @@ const topPanelObserver = new ResizeObserver(() => {
         }
     }
     
-    // Návratová funkce, která mapu zase ukáže (např. při odchodu z adminu nebo zobrazení trasy)
     function restoreMainMap() {
         const mapEl = document.getElementById('map');
         if (mapEl) {
@@ -2241,20 +2248,25 @@ const topPanelObserver = new ResizeObserver(() => {
         }
     }
 
-    // Funkce pro vykreslení zákazníkovy trasy z admin přehledu přímo na mapě
+    // --- OPRAVENÁ FUNKCE SE ZPOŽDĚNÍM ZOOMU A TLAČÍTKEM ZPĚT ---
     function viewCustomerRoute(pLat, pLng, dLat, dLng) {
         if (!pLat || !pLng) return alert("Chybí GPS souřadnice pro vykreslení trasy.");
         
-        // 1. ZÁSADNÍ OPRAVA: Přepnutí z administrace zpět do hlavní aplikace (odkryje mapu)
+        // Zobrazí hlavní panel aplikace s mapou
         showSection('section-app');
         
-        // 2. Vyčištění mapy před vykreslením nové trasy
+        // Odkryje fialové tlačítko pro návrat z mapy zpět do administrace
+        const btnBack = document.getElementById('btn-back-to-admin');
+        if (btnBack) btnBack.style.display = 'block';
+        
         clearRoutes();
         tempMarkers.clearLayers(); 
         
         let pickupLatLng = L.latLng(pLat, pLng);
-        map.setView(pickupLatLng, 14);
         L.marker(pickupLatLng, {icon: iconPickup}).addTo(tempMarkers).bindPopup("Místo nakládky (Hledaná trasa)").openPopup();
+        
+        // Vynutí probuzení mapy z režimu displej:none
+        setTimeout(() => { if (typeof map !== 'undefined') map.invalidateSize(); }, 300);
         
         if (dLat && dLng) {
             let dropoffLatLng = L.latLng(dLat, dLng);
@@ -2262,17 +2274,32 @@ const topPanelObserver = new ResizeObserver(() => {
             
             let rc = L.Routing.control({
                 waypoints: [createWaypoint(pickupLatLng), createWaypoint(dropoffLatLng)],
-                router: getRouter(2), show: false, addWaypoints: false,
+                router: getRouter(2), 
+                show: false, 
+                addWaypoints: false,
+                createMarker: function() { return null; },
                 lineOptions: { styles: [{ color: '#2563eb', opacity: 0.8, weight: 6 }] }
             }).addTo(map);
+            
+            rc.on('routesfound', function(e) {
+                let routes = e.routes;
+                // Zpoždění zoomu, aby se prohlížeč nejprve stihl překreslit
+                setTimeout(() => {
+                    map.fitBounds(L.polyline(routes[0].coordinates).getBounds(), { padding: [50, 50] });
+                }, 400);
+            });
+            
             routingControls.push(rc);
+        } else {
+            setTimeout(() => {
+                map.setView(pickupLatLng, 16);
+            }, 400);
         }
         
-        // 3. Vynucení překreslení mapy, aby po zobrazení nezůstala "šedá"
-        setTimeout(() => { if (typeof map !== 'undefined') map.invalidateSize(); }, 300);
-        
         if (window.innerWidth <= 768) {
-            document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
+            setTimeout(() => {
+                document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
+            }, 400);
         }
     }
 
@@ -2281,14 +2308,11 @@ const topPanelObserver = new ResizeObserver(() => {
     let adminHistoryOrdersListener = null;
     let adminUsersListener = null;
 
-    // 1. Evidence řidičů a vozidel
     function openAdminDrivers() {
         prepareAdminView();
         showSection('section-admin-drivers');
-        // Zde můžete načítat řidiče ze samostatné kolekce, pokud ji využíváte
     }
 
-    // 2. Správa aktivních objednávek
     function openAdminActiveOrders() {
         prepareAdminView();
         showSection('section-admin-active-orders');
@@ -2334,7 +2358,6 @@ const topPanelObserver = new ResizeObserver(() => {
             });
     }
 
-    // 3. Historie všech jízd
     function openAdminHistory() {
         prepareAdminView();
         showSection('section-admin-history');
@@ -2380,7 +2403,6 @@ const topPanelObserver = new ResizeObserver(() => {
             });
     }
 
-    // Společná funkce pro mazání objednávek
     async function deleteGlobalOrder(docId) {
         if (!confirm("Opravdu chcete tento záznam objednávky trvale smazat?")) return;
         try {
@@ -2391,9 +2413,6 @@ const topPanelObserver = new ResizeObserver(() => {
         }
     }
 
-
-
-    // 4. Registrovaní zákazníci
     function openAdminUsers() {
         prepareAdminView();
         showSection('section-admin-users');
@@ -2447,20 +2466,14 @@ const topPanelObserver = new ResizeObserver(() => {
             alert("Chyba při mazání uživatele: " + error.message);
         }
     }
-// ==================================================
-// REGISTROVANÍ ZÁKAZNÍCI (SPUŠTĚNÍ PO STISKNUTÍ TLAČÍTKA)
-// ==================================================
 
-// Tato funkce se zavolá po kliknutí na tlačítko "👥 Registrovaní zákazníci"
 function openAdminUsers() {
-    showSection('section-admin-users'); // 1. Otevře / zobrazí sekce v administraci
-    loadUsersData();                     // 2. Spustí načítání dat z Firebase
+    showSection('section-admin-users'); 
+    loadUsersData();                     
 }
 
-// Globální proměnná pro uchování dat
 let allUsersData = [];
 
-// Inicializace dat z Firebase v reálném čase
 function loadUsersData() {
     if (typeof db === "undefined") {
         console.error("Firebase db není inicializována!");
@@ -2482,7 +2495,6 @@ function loadUsersData() {
     });
 }
 
-// FILTRY A VYKRESLOVÁNÍ
 function filterData(dataArray, dateFromId, dateToId, searchId) {
     let fromVal = document.getElementById(dateFromId) ? document.getElementById(dateFromId).value : ""; 
     let toVal = document.getElementById(dateToId) ? document.getElementById(dateToId).value : ""; 
@@ -2575,7 +2587,6 @@ function renderUsersTable(dataArray) {
     });
 }
 
-// AKCE (ÚPRAVA A MAZÁNÍ)
 window.editUserRecord = function(docId, name, phone, email) {
     let newPhone = prompt(`Upravit telefon pro: ${name}\nNová hodnota:`, phone);
     if (newPhone === null) return;
@@ -2623,7 +2634,6 @@ async function deleteSelectedUsers() {
     }
 }
 
-/* --- LOGIKA PRO HISTORII HLEDANÝCH TRAS --- */
 let allHistoryData = [];
 
 function openAdminSearchHistory() {
@@ -2648,7 +2658,6 @@ function loadStatistics() {
             allHistoryData.push(data); 
         });
         
-        // Seřazení záznamů od nejnovějších
         allHistoryData.sort((a,b) => (b.date ? b.date.seconds : 0) - (a.date ? a.date.seconds : 0)); 
         
         applyHistoryFilters();
