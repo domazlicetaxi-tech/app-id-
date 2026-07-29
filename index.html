@@ -643,11 +643,11 @@ body.admin-mode #app-container{
             <button class="btn-dispatch" id="btn-confirm-order-action" onclick="confirmOrder()" style="margin-bottom: 10px;">Potvrdit a přistavit k zákazníkovi</button>
             
             <div id="driver-action-buttons" style="display: none; gap: 10px; flex-direction: column;">
-                <button class="btn-dispatch" onclick="resumeOrder()" style="background: var(--warning-amber); color: black; margin-bottom: 0;">▶ Pokračovat ve vyřizování</button>
-                <button class="btn-dispatch" onclick="cancelOrder()" style="background: var(--danger-red); margin-bottom: 10px;">✖ Zrušit zakázku</button>
-            </div>
+             <button class="btn-dispatch" onclick="resumeOrder()" style="background: var(--warning-amber); color: black; margin-bottom: 0;">▶ Pokračovat ve vyřizování</button>
+             <button class="btn-dispatch" id="btn-handoff-order" onclick="handoffOrder()" style="background: #64748b; margin-bottom: 0;">🔄 Předat zakázku jinému řidiči</button>
+             <button class="btn-dispatch" onclick="cancelOrder()" style="background: var(--danger-red); margin-bottom: 10px;">✖ Zrušit zakázku</button>
         </div>
-
+      </div>
     </div>
     
     <div id="map"></div>
@@ -1426,28 +1426,31 @@ body.admin-mode #app-container{
         document.getElementById('detail-time').innerText = currentEditingOrder.time || "Neznámý";
         document.getElementById('detail-extra-time').value = currentEditingOrder.extraTime || 0;
         
-        const confirmBtn = document.getElementById('btn-confirm-order-action');
+       const confirmBtn = document.getElementById('btn-confirm-order-action');
         const extraTimeCont = document.getElementById('detail-extra-time-container');
         const assignedDriverEl = document.getElementById('detail-assigned-driver');
         const actionBtns = document.getElementById('driver-action-buttons');
+        const handoffBtn = document.getElementById('btn-handoff-order');
 
         const myFirstName = localStorage.getItem('taxi_green_driver_firstname');
+        let isActiveStatus = ['Potvrzeno', 'Přistaveno', 'Už jdu', 'Zákazník ve voze', 'Zákazník nastoupil'].includes(currentEditingOrder.status);
 
         if (currentEditingOrder.status === 'Nová') { 
             confirmBtn.style.display = 'block'; 
             extraTimeCont.style.display = 'block'; 
             assignedDriverEl.style.display = 'none';
             actionBtns.style.display = 'none';
-        } else if (currentEditingOrder.status === 'Potvrzeno' && currentEditingOrder.driverName === myFirstName) {
+            if(handoffBtn) handoffBtn.style.display = 'none';
+        } else if (isActiveStatus && currentEditingOrder.driverName === myFirstName) {
             confirmBtn.style.display = 'none'; 
             extraTimeCont.style.display = 'none';
             assignedDriverEl.style.display = 'none';
             actionBtns.style.display = 'flex';
+            if(handoffBtn) handoffBtn.style.display = 'block';
         } else {
             confirmBtn.style.display = 'none'; 
             extraTimeCont.style.display = 'none';
             actionBtns.style.display = 'none';
-            
             if (currentEditingOrder.driverName) {
                 let text = `Tuto zakázku vyřizuje (vyřizoval) řidič: ${currentEditingOrder.driverName}`;
                 if (currentEditingOrder.driverCar) { text += ` s vozidlem ${currentEditingOrder.driverCar} (${currentEditingOrder.driverSpz})`; }
@@ -1591,43 +1594,85 @@ body.admin-mode #app-container{
         }
     }
 
+   function handoffOrder() {
+        if(!currentEditingOrder) return;
+        if(!confirm("Opravdu chcete tuto zakázku uvolnit (předat) pro ostatní řidiče?\nZakázka se znovu objeví všem dispečerům/řidičům jako Nová a začne alarm.")) return;
+        
+        db.collection("taxi_orders").doc(currentEditingOrder.id).update({
+            status: "Nová",
+            driverName: null, driverCar: null, driverSpz: null, vehicleIndex: null,
+            eta: null, targetArrivalTime: null, driverArrived: false, customerAcknowledged: false
+        }).then(() => {
+            alert("Zakázka byla uvolněna pro ostatní řidiče.");
+            if (activeOrderId === currentEditingOrder.id) { stopNavigation(); activeOrderId = null; }
+            openOrdersSection();
+        }).catch(err => alert("Chyba při předávání: " + err.message));
+    }
+
     function resumeOrder() {
         if(!currentEditingOrder) return;
         activeOrderId = currentEditingOrder.id;
         
         document.getElementById('pickup').value = currentEditingOrder.pickup;
         document.getElementById('dropoff').value = currentEditingOrder.dropoff || '';
-        
         showSection('section-app');
-        document.getElementById('btn-arrived-at-customer').style.display = 'block';
 
         let pLat = currentEditingOrder.pickupLat || currentEditingOrder.lat || currentEditingOrder.latitude;
         let pLng = currentEditingOrder.pickupLng || currentEditingOrder.lng || currentEditingOrder.lon || currentEditingOrder.longitude;
         let dLat = currentEditingOrder.dropoffLat || currentEditingOrder.deliveryLat || currentEditingOrder.targetLat;
         let dLng = currentEditingOrder.dropoffLng || currentEditingOrder.deliveryLng || currentEditingOrder.targetLng;
 
-        if (pLat && pLng) { 
-            coordsData.pickup = L.latLng(pLat, pLng); 
-            dispatchVehicle(); 
-        } else {
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(currentEditingOrder.pickup)}&countrycodes=cz`).then(res => res.json()).then(data => {
-                if(data && data.length > 0) { 
-                    coordsData.pickup = L.latLng(data[0].lat, data[0].lon); 
-                    dispatchVehicle(); 
+        const executeResume = () => {
+            const s = currentEditingOrder.status;
+            const arrived = currentEditingOrder.driverArrived;
+
+            document.getElementById('btn-calc').style.display = 'none';
+            document.getElementById('btn-dispatch').style.display = 'none';
+            document.getElementById('btn-stop-nav').style.display = 'block';
+            document.getElementById('btn-arrived-at-customer').style.display = 'none';
+            document.getElementById('btn-waiting-for-customer').style.display = 'none';
+            document.getElementById('btn-customer-on-way').style.display = 'none';
+            document.getElementById('btn-nav-dropoff').style.display = 'none';
+
+            if (s === 'Zákazník nastoupil' || s === 'Zákazník ve voze') {
+                if (coordsData.dropoff) { startNavigationToDropoff(); } else {
+                    document.getElementById('btn-stop-nav').style.display = 'none';
+                    document.getElementById('btn-calc').style.display = 'block';
                 }
+            } else {
+                dispatchVehicle();
+                setTimeout(() => {
+                    document.getElementById('btn-arrived-at-customer').style.display = 'none';
+                    if (s === 'Už jdu') { document.getElementById('btn-customer-on-way').style.display = 'block'; } 
+                    else if (arrived) { document.getElementById('btn-waiting-for-customer').style.display = 'block'; } 
+                    else { document.getElementById('btn-arrived-at-customer').style.display = 'block'; }
+                }, 200);
+            }
+        };
+
+        let pendingGeocodes = 0;
+
+        if (pLat && pLng) { coordsData.pickup = L.latLng(pLat, pLng); } else {
+            pendingGeocodes++;
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(currentEditingOrder.pickup)}&countrycodes=cz`).then(res => res.json()).then(data => {
+                if(data && data.length > 0) coordsData.pickup = L.latLng(data[0].lat, data[0].lon); 
+                pendingGeocodes--; if(pendingGeocodes === 0) executeResume();
             });
         }
         
         if (currentEditingOrder.dropoff) { 
-            if (dLat && dLng) {
-                coordsData.dropoff = L.latLng(dLat, dLng);
-            } else {
+            if (dLat && dLng) { coordsData.dropoff = L.latLng(dLat, dLng); } else {
+                pendingGeocodes++;
                 fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(currentEditingOrder.dropoff)}&countrycodes=cz`).then(res => res.json()).then(data => { 
                     if(data && data.length > 0) coordsData.dropoff = L.latLng(data[0].lat, data[0].lon); 
+                    pendingGeocodes--; if(pendingGeocodes === 0) executeResume();
                 }); 
             }
         }
+        if (pendingGeocodes === 0) { executeResume(); }
     }
+        
+        
 
     function cancelOrder() {
         if(!currentEditingOrder) return;
@@ -1672,20 +1717,20 @@ body.admin-mode #app-container{
     function startRideAfterUzJdu() {
         stopAlarm();
         document.getElementById('btn-customer-on-way').style.display = 'none';
-
-        if (activeOrderId && db) {
-            db.collection("taxi_orders").doc(activeOrderId).update({ status: "Zákazník ve voze" });
-        }
+        
+        if (activeOrderId && db) { db.collection("taxi_orders").doc(activeOrderId).update({ status: "Zákazník nastoupil" }); }
 
         let dropoffVal = document.getElementById('dropoff').value;
         if (dropoffVal) {
             document.getElementById('btn-nav-dropoff').style.display = 'block';
-            startNavigationToDropoff(); // Rovnou spustí navigaci k cíli
+            startNavigationToDropoff(); 
         } else {
             alert("Zákazník nastoupil. Nemáte zadaný cíl cesty, můžete spustit Taxametr ručně.");
             resetActionButtons();
         }
     }
+
+        
 
     function startNavigationToDropoff() {
         if (!navigator.geolocation) return alert("GPS není podporována.");
@@ -1786,16 +1831,21 @@ body.admin-mode #app-container{
         container.querySelectorAll('.order-card').forEach(el => el.remove());
         if (pendingOrders.length === 0) { noMsg.style.display = 'block'; return; } noMsg.style.display = 'none';
         
+        const myFirstName = localStorage.getItem('taxi_green_driver_firstname');
+
         pendingOrders.forEach(ord => {
             let cardBg = '#fee2e2'; let borderCol = '#ef4444'; let statusLabel = 'ČEKÁ V POŘADÍ';
             
-            if (ord.status === 'Potvrzeno') { cardBg = '#f1f5f9'; borderCol = '#64748b'; statusLabel = 'VYŘIZUJE SE'; } 
+            let isActiveStatus = ['Potvrzeno', 'Přistaveno', 'Už jdu', 'Zákazník ve voze', 'Zákazník nastoupil'].includes(ord.status);
+            let isMyOrder = ord.driverName === myFirstName;
+
+            if (isActiveStatus) { cardBg = '#f1f5f9'; borderCol = '#64748b'; statusLabel = 'VYŘIZUJE SE'; } 
             else if (ord.status === 'Dokončeno') { cardBg = '#dcfce7'; borderCol = '#22c55e'; statusLabel = 'VYŘÍZENO'; }
             else if (ord.status === 'Zrušeno') { cardBg = '#f3f4f6'; borderCol = '#9ca3af'; statusLabel = 'ZRUŠENO'; }
 
             const cardName = ord.customerName || ord.name || ord.clientName || ord.userName || "Registrovaný Zákazník";
             let driverLabelHTML = '';
-            if (ord.status === 'Potvrzeno' && ord.driverName) {
+            if (isActiveStatus && ord.driverName) {
                 driverLabelHTML = `<div class="order-card-detail" style="color: var(--driver-blue); font-weight: 800; margin-top: 5px;">🚗 Vyřizuje: ${ord.driverName}`;
                 if (ord.driverCar) { driverLabelHTML += ` [${ord.driverCar} / ${ord.driverSpz}]`; }
                 driverLabelHTML += `</div>`;
@@ -1808,7 +1858,17 @@ body.admin-mode #app-container{
                 ${ord.dropoff ? `<div class="order-card-detail"><b>Cíl cesty:</b> ${ord.dropoff}</div>` : ''}
                 <div class="order-card-detail" style="font-size:11px; color:#64748b; margin-top:5px;">Čas doručení systému: ${ord.time || '-'}</div>
                 ${driverLabelHTML}`;
-            div.onclick = () => { openOrderDetail(ord.id); }; container.appendChild(div);
+
+            // BLOKOVÁNÍ VSTUPU CIZÍM ŘIDIČŮM
+            if (isActiveStatus && !isMyOrder) {
+                div.onclick = () => { alert(`Tuto zakázku právě vyřizuje řidič ${ord.driverName}. Nemůžete do ní vstoupit.`); };
+                div.style.opacity = '0.6';
+                div.style.cursor = 'not-allowed';
+            } else {
+                div.onclick = () => { openOrderDetail(ord.id); }; 
+            }
+
+            container.appendChild(div);
         });
     }
 
@@ -2193,9 +2253,11 @@ body.admin-mode #app-container{
         });
     }
 
-    function dispatchVehicle() {
+   function dispatchVehicle() {
         if (!navigator.geolocation) return alert("GPS není podporována.");
         requestWakeLock();
+        
+        clearRoutes(); 
         
         document.getElementById('btn-calc').style.display = 'none'; 
         document.getElementById('btn-dispatch').style.display = 'none'; 
@@ -2263,8 +2325,14 @@ body.admin-mode #app-container{
                     if (activeOrderId && db && locationSharingActive) {
                         const totalSec = res.routes[0].summary.totalTime; 
                         const extraTimeMin = parseInt(document.getElementById('detail-extra-time').value) || 0;
-                        const etaMin = Math.round(totalSec / 60) + extraTimeMin;
-                        db.collection("taxi_orders").doc(activeOrderId).update({ eta: etaMin });
+                        
+                        const totalSecondsArrival = Math.round(totalSec) + (extraTimeMin * 60);
+                        const targetArrivalTime = Date.now() + (totalSecondsArrival * 1000);
+                        
+                        db.collection("taxi_orders").doc(activeOrderId).update({ 
+                            eta: Math.ceil(totalSecondsArrival / 60),
+                            targetArrivalTime: targetArrivalTime
+                        });
                     }
                 });
                 routingControls.push(rc);
@@ -2288,7 +2356,7 @@ body.admin-mode #app-container{
         const carIconEl = document.getElementById('driver-car-icon');
         if (carIconEl) { carIconEl.style.transform = `rotate(0deg)`; }
 
-        if (activeOrderId && db) { db.collection("taxi_orders").doc(activeOrderId).update({ driverLat: null, driverLng: null, eta: null }); }
+        if (activeOrderId && db) { db.collection("taxi_orders").doc(activeOrderId).update({ driverLat: null, driverLng: null, eta: null, targetArrivalTime: null }); }
         
         if (coordsData.pickup) { map.setView(coordsData.pickup, 14); }
     }
@@ -2408,7 +2476,7 @@ body.admin-mode #app-container{
                     const pLat = data.pickupLat || (data.coordsData?.pickup?.lat) || null;
                     const pLng = data.pickupLng || (data.coordsData?.pickup?.lng) || null;
                     const dLat = data.dropoffLat || (data.coordsData?.dropoff?.lat) || null;
-                    const dLng = data.dropoffLng || (data.coordsData?.dropoff?.lng) || null;
+                    const dLng = data.dropoffLat || (data.coordsData?.dropoff?.lng) || null;
                     const calcPrice = data.price || data.calculatedPrice || 'Nezadána';
 
                     html += `
