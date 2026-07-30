@@ -188,11 +188,9 @@ body.admin-mode #app-container{
 
         body.taxameter-active #taxi-running {
             display: flex !important; flex-direction: column; width: 100%; padding: 10px; box-sizing: border-box;
+       body.taxameter-active #nav-instruction-box { 
+            position: absolute !important; top: calc(100% + 15px) !important; left: 50% !important; transform: translateX(-50%) !important; width: 85% !important; max-width: 360px !important; margin: 0 !important; border-radius: 12px !important; border-left: 6px solid var(--green-light) !important; border-bottom: none !important; box-sizing: border-box; display: flex !important;
         }
-        
-        body.taxameter-active #nav-instruction-box { 
-    position: absolute !important; top: calc(100% + 15px) !important; left: 50% !important; transform: translateX(-50%) !important; width: 85% !important; max-width: 360px !important; margin: 0 !important; border-radius: 12px !important; border-left: 6px solid var(--green-light) !important; border-bottom: none !important; box-sizing: border-box; display: flex !important;
-}
         
         /* Úprava pro profesionální Track-Up navigaci */
         body.taxameter-active #map {
@@ -771,9 +769,9 @@ body.admin-mode #app-container{
             const availableHeight = window.innerHeight - panelHeight;
             mapElm.style.top = panelHeight + 'px';
             
-            // OPRAVA PRO LOOK-AHEAD: Přidáme 40 % výšky navíc dospod.
-            // Mapa je reálně vyšší, takže její střed (kde je auto) bude vizuálně níž.
-            const extraLookAhead = window.innerHeight * 0.4;
+            // ÚPRAVA: Přidáme pouze 15 % výšky navíc dospod.
+            // Tím se střed mapy (autíčko) posune výš a nebude oříznuté na mobilu.
+            const extraLookAhead = window.innerHeight * 0.15;
             mapElm.style.height = (availableHeight + extraLookAhead) + 'px';
             
             if (typeof map !== 'undefined') map.invalidateSize();
@@ -916,6 +914,7 @@ body.admin-mode #app-container{
             utterance.lang = 'cs-CZ';
             utterance.volume = 1.0; 
             utterance.rate = 1.0;
+            utterance.pitch = 1.3; // NOVÉ: Zvýšení výšky hlasu pro lepší slyšitelnost v autě
             window.speechSynthesis.speak(utterance);
         }
     }
