@@ -261,6 +261,36 @@ body.admin-mode #app-container{
         .admin-filters input { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; }
         .admin-filters input:focus { border-color: var(--green-primary); }
         .admin-filters .btn-filter-reset { background: #64748b; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; }
+   /* --- STYLY PRO TISK (Schová aplikaci a vytiskne jen účtenku) --- */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #receipt-modal, #receipt-modal * {
+                visibility: visible;
+            }
+            #receipt-modal {
+                position: absolute;
+                left: 0;
+                top: 0;
+                background: white;
+                padding: 0;
+                margin: 0;
+                width: auto;
+                height: auto;
+                display: block !important;
+            }
+            .modal-content {
+                box-shadow: none;
+                border: none;
+                padding: 10px;
+                width: 100%;
+                max-width: 320px;
+            }
+            .modal-content button, .modal-btn {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -2128,7 +2158,7 @@ body.admin-mode #app-container{
         rateSetting = mode;
         document.querySelectorAll('.btn-mode').forEach(el => el.classList.remove('active'));
         document.getElementById(`mode-${mode}`).classList.add('active');
-        if(mode === 'mimo') { baseRate = 20; ratePerKm = 26; } else { baseRate = 20; ratePerKm = 34; }
+        if(mode === 'mimo') { baseRate = 20; ratePerKm = 13; } else { baseRate = 20; ratePerKm = 34; }
         if (coordsData.pickup && coordsData.dropoff) calculateRoute();
     }
 
@@ -2193,6 +2223,10 @@ body.admin-mode #app-container{
 
     function redrawTempMarkers() {
         tempMarkers.clearLayers();
+        if (rateSetting === 'mimo') {
+            const baseCoords = L.latLng(49.439841, 12.927355);
+            L.marker(baseCoords, {icon: iconBase}).addTo(tempMarkers).bindPopup("Sídlo firmy (Albert)");
+        }
         if (coordsData.pickup) L.marker(coordsData.pickup, {icon: iconPickup}).addTo(tempMarkers);
         if (coordsData.dropoff) L.marker(coordsData.dropoff, {icon: iconDropoff}).addTo(tempMarkers);
         coordsData.waypoints.forEach((wp, idx) => { if (wp.latlng) L.marker(wp.latlng, {icon: iconWaypoint}).addTo(tempMarkers).bindTooltip(`Průjezd ${idx+1}`, {permanent: true, direction: 'right'}); });
@@ -2247,7 +2281,7 @@ body.admin-mode #app-container{
         document.getElementById('price-val').innerText = '0';
     }
 
-    async function calculateRoute() {
+  async function calculateRoute() {
         clearRoutes(); tempMarkers.clearLayers();
         let pLatlng = coordsData.pickup; let dLatlng = coordsData.dropoff;
         
@@ -2264,9 +2298,21 @@ body.admin-mode #app-container{
         if (!pLatlng || !dLatlng) { alert("Nelze najít souřadnice. Zkontrolujte adresy nakládky a vykládky."); return; }
         redrawTempMarkers();
 
-        let allWaypoints = [createWaypoint(pLatlng)];
+        // Konstrukce trasy včetně návratu na základnu, pokud je režim Mimo město
+        const baseCoords = L.latLng(49.439841, 12.927355);
+        let allWaypoints = [];
+        
+        if (rateSetting === 'mimo') {
+            allWaypoints.push(createWaypoint(baseCoords)); // Start v Albertovi
+        }
+        
+        allWaypoints.push(createWaypoint(pLatlng));
         coordsData.waypoints.forEach(wp => { if (wp.latlng) allWaypoints.push(createWaypoint(wp.latlng)); });
         allWaypoints.push(createWaypoint(dLatlng));
+
+        if (rateSetting === 'mimo') {
+            allWaypoints.push(createWaypoint(baseCoords)); // Návrat k Albertovi
+        }
 
         let rc = L.Routing.control({
             waypoints: allWaypoints, router: getRouter(allWaypoints.length), routeWhileDragging: true, show: false, addWaypoints: false, createMarker: function() { return null; }, lineOptions: { styles: [{ color: '#15803d', opacity: 0.8, weight: 6 }] }
@@ -2275,11 +2321,13 @@ body.admin-mode #app-container{
 
         rc.on('routesfound', function(e) {
             let routes = e.routes; let summary = routes[0].summary;
-            let distKm = summary.totalDistance / 1000;
-            let price = baseRate + (distKm * ratePerKm);
             
-            document.getElementById('dist-val').innerText = distKm.toFixed(1);
-            document.getElementById('price-val').innerText = Math.round(price);
+            // Stejné zaokrouhlování vzdálenosti a ceny jako u zákaznické aplikace
+            let distKm = (summary.totalDistance / 1000).toFixed(1);
+            let price = Math.round(baseRate + (distKm * ratePerKm));
+            
+            document.getElementById('dist-val').innerText = distKm;
+            document.getElementById('price-val').innerText = price;
             
             document.getElementById('btn-calc').style.display = 'none';
             document.getElementById('btn-dispatch').style.display = 'block';
