@@ -467,12 +467,11 @@ body.admin-mode #app-container{
         <div id="section-admin-menu" class="panel-content">
             <button class="btn-action" onclick="closeAdmin()" style="margin-bottom:15px; background:#64748b; margin-top: 0;">⬅ Zpět do aplikace</button>
             <div class="admin-title" style="margin-top: 20px; font-size: 16px;">Hlavní administrace systému</div>
-            <button class="btn-action" onclick="openAdminEvidence()" style="background:var(--driver-blue); padding: 16px; font-size: 15px; margin-top: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">📋 Evidence řidičů a vozidel</button>
-            
-            <button class="btn-action" onclick="openAdminActiveOrders()" style="background:var(--warning-amber); color:black; padding: 16px; font-size: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">🟢 Správa aktivních objednávek</button>
+            <button class="btn-action" onclick="openAdminActiveOrders()" style="background:var(--warning-amber); color:black; padding: 16px; font-size: 15px; margin-top: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">🟢 Správa aktivních objednávek</button>
             <button class="btn-action" onclick="openAdminHistory()" style="background:#475569; padding: 16px; font-size: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">📚 Historie všech jízd</button>
-            <button class="btn-action" onclick="openAdminUsers()" style="background:var(--green-primary); padding: 16px; font-size: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">👥 Registrovaní zákazníci</button>
             <button class="btn-action" onclick="openAdminSearchHistory()" style="background:#7c3aed; padding: 16px; font-size: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">🔍 Historie hledaných tras</button>
+            <button class="btn-action" onclick="openAdminEvidence()" style="background:var(--driver-blue); padding: 16px; font-size: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">📋 Evidence řidičů a vozidel</button>
+            <button class="btn-action" onclick="openAdminUsers()" style="background:var(--green-primary); padding: 16px; font-size: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">👥 Registrovaní zákazníci</button>
         </div>
 
         <div id="section-admin" class="panel-content">
@@ -559,7 +558,7 @@ body.admin-mode #app-container{
             </div>
         </div>
 
-<!-- ADMIN: AKTIVNÍ OBJEDNÁVKY -->
+        <!-- ADMIN: AKTIVNÍ OBJEDNÁVKY -->
         <div id="section-admin-active-orders" class="panel-content">
             <button class="btn-action" onclick="showSection('section-admin-menu')" style="margin-bottom:15px; background:#64748b; margin-top: 0;">⬅ Zpět do menu administrace</button>
             <div class="admin-title">Správa aktivních objednávek</div>
@@ -570,44 +569,60 @@ body.admin-mode #app-container{
         <div id="section-admin-history" class="panel-content">
             <button class="btn-action" onclick="showSection('section-admin-menu')" style="margin-bottom:15px; background:#64748b; margin-top: 0;">⬅ Zpět do menu administrace</button>
             <div class="admin-title">Historie dokončených a zrušených jízd</div>
-            <div id="admin-history-orders-list"></div>
+            <div class="admin-table-container">
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+                    <thead>
+                        <tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1;">
+                            <th style="padding: 10px; border: 1px solid #cbd5e1;">Datum a Čas</th>
+                            <th style="padding: 10px; border: 1px solid #cbd5e1;">Zákazník</th>
+                            <th style="padding: 10px; border: 1px solid #cbd5e1;">Trasa</th>
+                            <th style="padding: 10px; border: 1px solid #cbd5e1;">Cena</th>
+                            <th style="padding: 10px; border: 1px solid #cbd5e1;">Účtenka (Řidič)</th>
+                            <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center;">Akce</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-history-orders-list">
+                        <!-- Plněno přes JavaScript -->
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <!-- ADMIN: REGISTROVANÍ ZÁKAZNÍCI -->
-<div id="section-admin-users" class="panel-content">
-    <button class="btn-action" onclick="showSection('section-admin-menu')" style="margin-bottom:15px; background:#64748b; margin-top: 0;">⬅ Zpět do menu administrace</button>
-    <div class="admin-title">Evidence registrovaných zákazníků</div>
+        <div id="section-admin-users" class="panel-content">
+            <button class="btn-action" onclick="showSection('section-admin-menu')" style="margin-bottom:15px; background:#64748b; margin-top: 0;">⬅ Zpět do menu administrace</button>
+            <div class="admin-title">Evidence registrovaných zákazníků</div>
 
-    <!-- Ovládací prvky, vyhledávání a filtry -->
-    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; align-items: center;">
-        <input type="text" id="user-search" placeholder="🔍 Hledat jméno, tel., e-mail..." oninput="applyUsersFilters()" style="flex: 1; min-width: 200px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-        
-        <label style="font-size: 12px;">Od: <input type="date" id="user-date-from" onchange="applyUsersFilters()" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></label>
-        <label style="font-size: 12px;">Do: <input type="date" id="user-date-to" onchange="applyUsersFilters()" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></label>
-        
-        <button class="btn-action" onclick="resetUsersFilters()" style="background: #64748b; padding: 8px 12px; margin: 0; width: auto;">Reset</button>
-        <button class="btn-delete" onclick="deleteSelectedUsers()" style="padding: 8px 12px; width: auto; margin: 0;">🗑️ Smazat vybrané</button>
-    </div>
+            <!-- Ovládací prvky, vyhledávání a filtry -->
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; align-items: center;">
+                <input type="text" id="user-search" placeholder="🔍 Hledat jméno, tel., e-mail..." oninput="applyUsersFilters()" style="flex: 1; min-width: 200px; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                
+                <label style="font-size: 12px;">Od: <input type="date" id="user-date-from" onchange="applyUsersFilters()" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></label>
+                <label style="font-size: 12px;">Do: <input type="date" id="user-date-to" onchange="applyUsersFilters()" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></label>
+                
+                <button class="btn-action" onclick="resetUsersFilters()" style="background: #64748b; padding: 8px 12px; margin: 0; width: auto;">Reset</button>
+                <button class="btn-delete" onclick="deleteSelectedUsers()" style="padding: 8px 12px; width: auto; margin: 0;">🗑️ Smazat vybrané</button>
+            </div>
 
-    <!-- Tabulka pro zobrazení dat -->
-    <div style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
-            <thead>
-                <tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1;">
-                    <th style="padding: 10px;">Datum registrace</th>
-                    <th style="padding: 10px;">Jméno a příjmení</th>
-                    <th style="padding: 10px;">Kontakty</th>
-                    <th style="padding: 10px;">Zařízení</th>
-                    <th style="padding: 10px; text-align: center;">Poloha</th>
-                    <th style="padding: 10px; text-align: center;">Akce</th>
-                </tr>
-            </thead>
-            <tbody id="stats-table-body">
-                <tr><td colspan="6" style="padding: 15px; text-align: center;">Načítám data...</td></tr>
-            </tbody>
-        </table>
-    </div>
-</div>
+            <!-- Tabulka pro zobrazení dat -->
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+                    <thead>
+                        <tr style="background: #f1f5f9; border-bottom: 2px solid #cbd5e1;">
+                            <th style="padding: 10px;">Datum registrace</th>
+                            <th style="padding: 10px;">Jméno a příjmení</th>
+                            <th style="padding: 10px;">Kontakty</th>
+                            <th style="padding: 10px;">Zařízení</th>
+                            <th style="padding: 10px; text-align: center;">Poloha</th>
+                            <th style="padding: 10px; text-align: center;">Akce</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stats-table-body">
+                        <tr><td colspan="6" style="padding: 15px; text-align: center;">Načítám data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
         <div id="section-orders" class="panel-content">
             <button class="btn-logout" onclick="returnToMainAppFromOrders()" style="width:100%; margin-bottom:15px; background:#e2e8f0; color:#333;">⬅ Zpět na dispečink</button>
@@ -1691,6 +1706,22 @@ body.admin-mode #app-container{
             openOrdersSection();
         }).catch(err => alert("Chyba při rušení objednávky: " + err.message));
     }
+    
+     function finishOrder() {
+        if(!currentEditingOrder) return;
+        if(!confirm("Opravdu chcete tuto jízdu označit jako DOKONČENOU?")) return;
+        
+        db.collection("taxi_orders").doc(currentEditingOrder.id).update({
+            status: "Dokončeno"
+        }).then(() => {
+            alert("Jízda byla úspěšně dokončena. Nyní se přesune do historie.");
+            if (activeOrderId === currentEditingOrder.id) {
+                stopNavigation();
+                activeOrderId = null;
+            }
+            openOrdersSection();
+        }).catch(err => alert("Chyba při ukončování jízdy: " + err.message));
+    }
 
     function confirmArrivalAtCustomer() {
         if (activeOrderId && db) {
@@ -2395,7 +2426,6 @@ body.admin-mode #app-container{
         }
     }
 
-    // --- OPRAVENÁ FUNKCE SE ZPOŽDĚNÍM ZOOMU A TLAČÍTKEM ZPĚT ---
     function viewCustomerRoute(pLat, pLng, dLat, dLng) {
         if (!pLat || !pLng) return alert("Chybí GPS souřadnice pro vykreslení trasy.");
         
@@ -2505,49 +2535,189 @@ body.admin-mode #app-container{
             });
     }
 
+   window.adminHistoryOrdersMap = {};
+
     function openAdminHistory() {
         prepareAdminView();
         showSection('section-admin-history');
         const container = document.getElementById('admin-history-orders-list');
-        container.innerHTML = '<p style="font-size:13px; color:var(--text-muted);">Načítám historii...</p>';
+        container.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px; font-weight:bold;">Načítám historii z databáze... ⏳</td></tr>';
+        
         if (!db) return;
         if (adminHistoryOrdersListener) adminHistoryOrdersListener();
 
-        adminHistoryOrdersListener = db.collection("taxi_orders")
-            .where("status", "in", ["Dokončeno", "Zrušeno"])
-            .onSnapshot(snapshot => {
-                container.innerHTML = '';
-                if (snapshot.empty) { container.innerHTML = '<div class="admin-fullscreen-box"><p style="font-size:13px; font-style:italic;">Historie je prázdná.</p></div>'; return; }
-                
-                let html = '<div class="admin-fullscreen-box">';
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    const statusColor = data.status === 'Dokončeno' ? 'var(--green-light)' : 'var(--danger-red)';
-                    const pLat = data.pickupLat || null; const pLng = data.pickupLng || null;
-                    const dLat = data.dropoffLat || null; const dLng = data.dropoffLng || null;
-                    const calcPrice = data.price || data.calculatedPrice || data.total || '-';
-
-                    html += `
-                        <div class="driver-item" style="border-left: 4px solid ${statusColor}; opacity: 0.9;">
-                            <div class="driver-item-header">
-                                <strong>${data.customerName || data.name || 'Zákazník'}</strong>
-                                <span style="color:${statusColor}; font-size:11px; font-weight:bold;">${data.status}</span>
-                            </div>
-                            <div style="font-size:13px; margin-bottom:8px; line-height: 1.4;">
-                                📍 <strong>Od:</strong> ${data.pickup}<br>
-                                🏁 <strong>Do:</strong> ${data.dropoff || 'Nezadáno'}<br>
-                                💰 <strong>Cena:</strong> ${calcPrice} Kč<br>
-                                <span style="font-size:11px; color:var(--text-muted);">Čas: ${data.time || 'Neznámý'} | Vyřizoval: ${data.driverName || 'Nezadáno'}</span>
-                            </div>
-                            <div class="admin-btn-group">
-                                <button class="btn-admin-action btn-admin-map" onclick="viewCustomerRoute(${pLat}, ${pLng}, ${dLat}, ${dLng})">🗺️ Prohlédnout trasu jízdy</button>
-                                <button class="btn-delete" onclick="deleteGlobalOrder('${doc.id}')" style="background:#cbd5e1; color:#333; margin:0; width:auto; padding:8px 14px;">Odstranit</button>
-                            </div>
-                        </div>`;
-                });
-                html += '</div>';
-                container.innerHTML = html;
+        // Nyní stahujeme všechny objednávky a třídíme bezpečně lokálně (Zabrání to blokaci Firebase indexů)
+        adminHistoryOrdersListener = db.collection("taxi_orders").onSnapshot(snapshot => {
+            container.innerHTML = '';
+            let orders = [];
+            
+            snapshot.forEach(doc => { 
+                let data = doc.data();
+                // Propadnou sem pouze ukončené nebo zrušené jízdy, případně starší nezařazené
+                if (!data.status || data.status === "Dokončeno" || data.status === "Zrušeno" || data.status === "Zákazník nastoupil") {
+                    orders.push({id: doc.id, ...data}); 
+                }
             });
+
+            if (orders.length === 0) { 
+                container.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px; font-style:italic;">Historie je zatím prázdná.</td></tr>'; 
+                return; 
+            }
+            
+            // Bezpečné seřazení od nejnovějšího
+            orders.sort((a,b) => {
+                let tA = a.date && a.date.seconds ? a.date.seconds : (new Date(a.date || a.timestamp || 0).getTime() / 1000 || 0);
+                let tB = b.date && b.date.seconds ? b.date.seconds : (new Date(b.date || b.timestamp || 0).getTime() / 1000 || 0);
+                return tB - tA;
+            });
+
+            window.adminHistoryOrdersMap = {}; // Reset mapy dat
+
+            orders.forEach(data => {
+                window.adminHistoryOrdersMap[data.id] = data; // Bezpečné uložení do paměti prohlížeče
+
+                let statusColor = 'var(--text-muted)';
+                let statusBadge = data.status || 'Neznámý stav';
+                if (data.status === 'Dokončeno') statusColor = 'var(--green-light)';
+                if (data.status === 'Zrušeno') statusColor = 'var(--danger-red)';
+                if (data.status === 'Zákazník nastoupil') { statusColor = 'var(--driver-blue)'; statusBadge = 'Neukončeno'; }
+
+                const calcPrice = data.price || data.calculatedPrice || data.total || '-';
+                
+                // Zpracování datumu i když chybí
+                let orderDate = null;
+                if (data.date && data.date.seconds) { orderDate = new Date(data.date.seconds * 1000); }
+                else if (data.date) { orderDate = new Date(data.date); }
+                let dateHtml = (orderDate && !isNaN(orderDate)) ? orderDate.toLocaleDateString('cs-CZ') : "Neznámý";
+                let timeHtml = data.time || ((orderDate && !isNaN(orderDate)) ? orderDate.toLocaleTimeString('cs-CZ') : "");
+
+                // Informace o zákazníkovi
+                let customerDetails = `
+                    <strong>${data.customerName || data.name || 'Neznámý zákazník'}</strong><br>
+                    📞 <a href="tel:${data.phone}" style="text-decoration:none; color:var(--driver-blue); font-weight:bold;">${data.phone || 'Nezadáno'}</a><br>
+                    ✉️ <span style="color:#64748b;">${data.email || 'Bez e-mailu'}</span>
+                `;
+
+                // Tlačítko trasy je navázáno jen na ID, takže ho nezničí speciální znaky v textech
+                let routeDetails = `
+                    📍 <b>Z:</b> ${data.pickup || 'Nezadáno'}<br>
+                    🏁 <b>Do:</b> ${data.dropoff || 'Nezadáno'}<br>
+                    <button class="btn-action" style="background:#16a34a; padding:6px 10px; font-size:11px; margin-top:8px; width:auto; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.1);" onclick="viewFullCustomerRouteFromHistory('${data.id}')">🗺️ Zobrazit celou trasu v mapě</button>
+                `;
+
+                let driverName = data.driverName || 'Neznámý řidič';
+                let driverCar = data.driverCar || '-';
+                let driverSpz = data.driverSpz || '-';
+
+                // Účtenku lze tisknout u dokončených jízd
+                let receiptBtn = (data.status === 'Dokončeno' || data.status === 'Zákazník nastoupil') ? `
+                    <div style="font-size:11px; margin-bottom:5px; color:var(--text-dark);">👤 <b>${driverName}</b><br>🚗 ${driverCar} [${driverSpz}]</div>
+                    <button class="btn-action" style="background:#475569; padding:6px 10px; font-size:11px; width:auto; font-weight:bold;" onclick="printAdminReceiptFromMap('${data.id}')">🖨️ Tisknout účtenku</button>
+                ` : `<span style="color:var(--danger-red); font-weight:bold;">Zrušeno</span>`;
+
+                let tr = document.createElement('tr');
+                tr.style.borderLeft = `4px solid ${statusColor}`;
+                tr.innerHTML = `
+                    <td style="padding: 10px; border: 1px solid #cbd5e1; background: #f8fafc; font-weight:bold;">${dateHtml}<br><span style="font-size:11px; color:#64748b; font-weight:normal;">${timeHtml}</span><br><span style="font-size:10px; padding:2px 4px; background:${statusColor}; color:white; border-radius:4px; margin-top:4px; display:inline-block;">${statusBadge}</span></td>
+                    <td style="padding: 10px; border: 1px solid #cbd5e1; font-size:12px; background: #f8fafc;">${customerDetails}</td>
+                    <td style="padding: 10px; border: 1px solid #cbd5e1; font-size:12px; line-height:1.4; background: #f8fafc;">${routeDetails}</td>
+                    <td style="padding: 10px; border: 1px solid #cbd5e1; font-weight:900; color:var(--text-dark); background: #f8fafc; font-size:14px;">${calcPrice} ${calcPrice !== '-' && calcPrice !== 'Dle jízdy' ? 'Kč' : ''}</td>
+                    <td style="padding: 10px; border: 1px solid #cbd5e1; background: #f8fafc;">${receiptBtn}</td>
+                    <td style="padding: 10px; border: 1px solid #cbd5e1; text-align:center; background: #f8fafc;">
+                        <button class="btn-delete" onclick="deleteGlobalOrder('${data.id}')" style="background:var(--danger-red); color:white; border:none; padding:6px 12px; border-radius:4px; font-size:11px; text-transform: uppercase; font-weight:bold; cursor:pointer;">Smazat</button>
+                    </td>
+                `;
+                container.appendChild(tr);
+            });
+        }, error => {
+            console.error("Chyba při načítání historie:", error);
+            container.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px; color:red; font-weight:bold;">Chyba při stahování dat z databáze. Zkontrolujte připojení.</td></tr>';
+        });
+    }
+
+    // Pomocné funkce pro tlačítka - vytáhnou si bezpečně data z RAM
+    function viewFullCustomerRouteFromHistory(orderId) {
+        let data = window.adminHistoryOrdersMap[orderId];
+        if (!data) return alert("Chyba načtení dat objednávky z paměti.");
+        viewFullCustomerRoute(data.pickupLat, data.pickupLng, data.dropoffLat, data.dropoffLng, data.waypointsCoords);
+    }
+
+    function printAdminReceiptFromMap(orderId) {
+        let data = window.adminHistoryOrdersMap[orderId];
+        if (!data) return;
+        let driverStr = data.driverName || 'Neznámý';
+        let carStr = data.driverCar || '-';
+        let spzStr = data.driverSpz || '-';
+        let price = data.price || data.calculatedPrice || data.total || '0';
+        printAdminReceipt(driverStr, carStr, spzStr, data.pickup, data.dropoff, price);
+    }
+
+    function printAdminReceipt(driverStr, carStr, spzStr, pickup, dropoff, price) {
+        document.getElementById('rec-driver').innerText = `${driverStr} (${carStr}, ${spzStr})`;
+        document.getElementById('rec-from').innerText = pickup || "Nezadáno";
+        document.getElementById('rec-to').innerText = dropoff || "Nezadáno";
+        document.getElementById('rec-fare').innerText = price;
+        document.getElementById('rec-wait').innerText = "0.00";
+        document.getElementById('rec-total').innerText = price;
+        document.getElementById('receipt-modal').style.display = 'flex';
+    }
+
+    function viewFullCustomerRoute(pLat, pLng, dLat, dLng, waypoints) {
+        if (!pLat || !pLng) return alert("Chybí GPS souřadnice místa nakládky pro vykreslení trasy.");
+        
+        // Návrat do hlavní aplikace
+        showSection('section-app');
+        const btnBack = document.getElementById('btn-back-to-admin');
+        if (btnBack) btnBack.style.display = 'block';
+        
+        clearRoutes();
+        tempMarkers.clearLayers(); 
+        
+        // Základna Albert
+        let baseCoords = L.latLng(49.439841, 12.927355);
+        let pickupLatLng = L.latLng(pLat, pLng);
+        let dropoffLatLng = (dLat && dLng) ? L.latLng(dLat, dLng) : null;
+
+        L.marker(baseCoords, {icon: iconBase}).addTo(tempMarkers).bindPopup("Sídlo firmy (Albert)");
+        L.marker(pickupLatLng, {icon: iconPickup}).addTo(tempMarkers).bindPopup("Místo nakládky");
+        if (dropoffLatLng) {
+            L.marker(dropoffLatLng, {icon: iconDropoff}).addTo(tempMarkers).bindPopup("Místo vykládky");
+        }
+        
+        setTimeout(() => { if (typeof map !== 'undefined') map.invalidateSize(); }, 300);
+        
+        let routePoints = [];
+        // Vytvoření trasy dle zadání: Základna -> Nakládka -> Body -> Vykládka
+        routePoints.push(createWaypoint(baseCoords));
+        routePoints.push(createWaypoint(pickupLatLng));
+        
+        if (waypoints && Array.isArray(waypoints)) {
+            waypoints.forEach((wp, idx) => {
+                let wpll = L.latLng(wp.lat, wp.lng);
+                routePoints.push(createWaypoint(wpll));
+                L.marker(wpll, {icon: iconWaypoint}).addTo(tempMarkers).bindPopup("Průjezdný bod " + (idx+1));
+            });
+        }
+        
+        if (dropoffLatLng) {
+            routePoints.push(createWaypoint(dropoffLatLng));
+        }
+
+        let rc = L.Routing.control({
+            waypoints: routePoints,
+            router: getRouter(routePoints.length), 
+            show: false, 
+            addWaypoints: false,
+            createMarker: function() { return null; },
+            lineOptions: { styles: [{ color: '#2563eb', opacity: 0.8, weight: 6 }] }
+        }).addTo(map);
+        
+        rc.on('routesfound', function(e) {
+            let routes = e.routes;
+            setTimeout(() => { map.fitBounds(L.polyline(routes[0].coordinates).getBounds(), { padding: [50, 50] }); }, 400);
+        });
+        
+        routingControls.push(rc);
     }
 
     async function deleteGlobalOrder(docId) {
