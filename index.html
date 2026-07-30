@@ -959,6 +959,10 @@ body.admin-mode #app-container{
     let activeNavPolyline = null;
     let lastKnownBearing = 0;
 
+    // NOVÉ PROMĚNNÉ PRO NAVIGACI:
+let passedNavPolyline = null; // Bude držet světlou čáru projeté trasy
+let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sjetí
+    
     function calculateBearing(startLat, startLng, destLat, destLng) {
         const rad = Math.PI / 180;
         const startLatRad = startLat * rad; const startLngRad = startLng * rad;
@@ -971,14 +975,43 @@ body.admin-mode #app-container{
 
     function updateNavigationProgress(currentPos) {
         if (!activeNavPolyline || activeNavCoords.length === 0) return;
-        let closestIdx = 0; let minDist = Infinity;
+        
+        let closestIdx = 0; 
+        let minDist = Infinity;
+        
         for (let i = 0; i < activeNavCoords.length; i++) {
             let dist = currentPos.distanceTo(activeNavCoords[i]);
             if (dist < minDist) { minDist = dist; closestIdx = i; }
         }
+
+        // 1. Ošetření sjetí z trasy (Rerouting po 50 metrech)
+        if (minDist > 50) { 
+            let now = Date.now();
+            if (now - lastRecalcTime > 5000 && routingControls.length > 0) { 
+                lastRecalcTime = now;
+                let rc = routingControls[0];
+                let waypoints = rc.getWaypoints();
+                let destWaypoint = waypoints[waypoints.length - 1]; 
+                
+                rc.setWaypoints([createWaypoint(currentPos), destWaypoint]); 
+                return; 
+            }
+        }
+
+        // 2. Vykreslení zbývající trasy (Výrazná zelená)
         let remainingCoords = activeNavCoords.slice(closestIdx);
         remainingCoords.unshift(currentPos);
         activeNavPolyline.setLatLngs(remainingCoords);
+
+        // 3. Vykreslení projeté trasy (Světlá tenká čára)
+        let passedCoords = activeNavCoords.slice(0, closestIdx + 1);
+        passedCoords.push(currentPos);
+
+        if (!passedNavPolyline) {
+            passedNavPolyline = L.polyline(passedCoords, { color: '#a7f3d0', opacity: 0.6, weight: 3 }).addTo(map);
+        } else {
+            passedNavPolyline.setLatLngs(passedCoords);
+        }
 
         // Spuštění výpočtu instrukcí na trase
         updateNavigationInstructionsUI(currentPos, closestIdx);
@@ -2262,8 +2295,13 @@ body.admin-mode #app-container{
         });
     }
 
-    function clearRoutes() { routingControls.forEach(rc => map.removeControl(rc)); routingControls = []; if (activeNavPolyline) { map.removeLayer(activeNavPolyline); activeNavPolyline = null; } }
-
+    function clearRoutes() { 
+    routingControls.forEach(rc => map.removeControl(rc)); 
+    routingControls = []; 
+    if (activeNavPolyline) { map.removeLayer(activeNavPolyline); activeNavPolyline = null; } 
+    // NOVÉ: Smaže i světlou projetou trasu
+    if (passedNavPolyline) { map.removeLayer(passedNavPolyline); passedNavPolyline = null; }
+}
     async function processAddressToCoords(inputId) {
         const val = document.getElementById(inputId)?.value;
         if (!val) return null;
