@@ -259,54 +259,83 @@ body.admin-mode #app-container{
         .admin-filters input { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none; }
         .admin-filters input:focus { border-color: var(--green-primary); }
         .admin-filters .btn-filter-reset { background: #64748b; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; }
-   /* --- STYLY PRO TISK (Schová aplikaci a vytiskne jen účtenku) --- */
+ /* --- STYLY PRO TISK (Schová aplikaci a vytiskne jen účtenku) --- */
         @media print {
-            body * {
-                visibility: hidden;
-            }
-            #receipt-modal, #receipt-modal * {
-                visibility: visible;
-            }
+            body * { visibility: hidden; }
+            #receipt-modal, #receipt-modal * { visibility: visible; }
             #receipt-modal {
-                position: absolute;
-                left: 0;
-                top: 0;
-                background: white;
-                padding: 0;
-                margin: 0;
-                width: auto;
-                height: auto;
-                display: block !important;
+                position: absolute; left: 0; top: 0; background: white; padding: 0; margin: 0;
+                width: 100%; height: auto; display: block !important;
             }
             .modal-content {
-                box-shadow: none;
-                border: none;
-                padding: 10px;
-                width: 100%;
-                max-width: 320px;
+                box-shadow: none !important; border: none !important; padding: 10px !important;
+                width: 100% !important; max-width: 100% !important; margin: 0 auto;
             }
-            .modal-content button, .modal-btn {
-                display: none !important;
+            #receipt-action-buttons { display: none !important; }
+            #receipt-map { border: 1px solid #000 !important; }
+            /* Vynucení tisku grafiky pro mapu */
+            .leaflet-tile-pane {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
         }
     </style>
 </head>
 <body>
 
-<div id="taxameter-top-panel"></div>
+ <div id="taxameter-top-panel"></div>
 
 <div id="receipt-modal" class="modal-overlay">
-    <div class="modal-content">
-        <h3 style="text-align: center; margin-top: 0; border-bottom: 2px dashed #000; padding-bottom: 10px;">ÚČTENKA TAXI GREEN</h3>
-        <p><strong>Řidič:</strong> <span id="rec-driver"></span></p>
-        <p><strong>Nástup:</strong> <span id="rec-from"></span></p>
-        <p><strong>Výstup:</strong> <span id="rec-to"></span></p>
-        <hr style="border-top: 1px dashed #000; margin: 15px 0;">
-        <p><strong>Jízdné:</strong> <span id="rec-fare"></span> Kč</p>
-        <p><strong>Čekání:</strong> <span id="rec-wait"></span> Kč</p>
-        <h2 style="text-align: center; margin-top: 15px; border-top: 2px dashed #000; padding-top: 10px;">Celkem: <span id="rec-total"></span> Kč</h2>
-        <button class="modal-btn" onclick="executePrint()">Tisknout</button>
-        <button onclick="document.getElementById('receipt-modal').style.display='none'" style="width:100%; padding: 10px; margin-top: 10px; cursor:pointer; background:#e2e8f0; border:none; border-radius:6px; font-weight:bold;">Zavřít</button>
+    <div class="modal-content" style="width: 340px; font-family: 'Courier New', Courier, monospace;">
+        <h3 style="text-align: center; margin-top: 0; margin-bottom: 5px;">ÚČTENKA TAXI GREEN</h3>
+        
+        <!-- HLAVIČKA DOPRAVCE -->
+        <div style="text-align: center; font-size: 13px; margin-bottom: 10px; border-bottom: 1px solid #000; padding-bottom: 10px;">
+            <strong>Taxi služba Jaroslav Musil</strong><br>
+            IČO: 76126447<br>
+            Msgre.B.Staša 54, 344 01 Domažlice
+        </div>
+        
+        <!-- ODDĚLENÝ ŘIDIČ A VOZIDLO -->
+        <p style="font-size: 13px; margin: 5px 0;"><strong>Řidič:</strong> <span id="rec-driver" style="font-weight: bold;"></span></p>
+        <p style="font-size: 13px; margin: 5px 0;"><strong>Vozidlo taxi:</strong> <span id="rec-car" style="font-weight: bold;"></span></p>
+        
+        <hr style="border-top: 1px dashed #000; margin: 10px 0;">
+        
+        <!-- ADRESY -->
+        <p style="font-size: 13px; margin: 5px 0;"><strong>Nástup:</strong> <br><span id="rec-from"></span></p>
+        <p style="font-size: 13px; margin: 5px 0;"><strong>Výstup:</strong> <br><span id="rec-to"></span></p>
+        <hr style="border-top: 1px dashed #000; margin: 10px 0;">
+        
+        <!-- ROZPIS CENY -->
+        <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+            <tr>
+                <td style="padding: 3px 0;">Nástupní sazba:</td>
+                <td style="text-align: right; padding: 3px 0;">20.00 Kč</td>
+            </tr>
+            <tr>
+                <td style="padding: 3px 0;">Ujeto (<span id="rec-dist">0.00</span> km):</td>
+                <td style="text-align: right; padding: 3px 0;"><span id="rec-dist-fare">0.00</span> Kč</td>
+            </tr>
+            <tr>
+                <td style="padding: 3px 0;">Čekání (<span id="rec-wait-time">00:00</span>):</td>
+                <td style="text-align: right; padding: 3px 0;"><span id="rec-wait">0.00</span> Kč</td>
+            </tr>
+        </table>
+        
+        <h2 style="text-align: center; margin-top: 15px; border-top: 2px solid #000; padding-top: 10px; font-size: 18px;">CELKEM: <span id="rec-total"></span> Kč</h2>
+
+        <!-- MAPA PRO TISK -->
+        <div id="receipt-map" style="width: 100%; height: 160px; margin-top: 15px; border: 1px solid #000; display: none;"></div>
+
+        <!-- TLAČÍTKA OBALENÁ DO DIVU PRO JEJICH SKRYTÍ PŘI TISKU -->
+        <div id="receipt-action-buttons">
+            <div style="display: flex; gap: 8px; margin-top: 15px;">
+                <button class="modal-btn" onclick="executePrint()" style="flex: 1; font-size: 12px; margin-top: 0; padding: 12px 5px;">🖨️ TISKNOUT</button>
+                <button class="modal-btn" onclick="sendReceiptEmail()" style="flex: 1; background: #2563eb; font-size: 12px; margin-top: 0; padding: 12px 5px;">✉️ E-MAIL</button>
+            </div>
+            <button onclick="closeReceiptModal()" style="width:100%; padding: 12px; margin-top: 10px; cursor:pointer; background:#e2e8f0; border:none; border-radius:6px; font-weight:bold;">ZAVŘÍT</button>
+        </div>
     </div>
 </div>
 
@@ -2146,30 +2175,114 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         document.getElementById('taxi-running').style.display = 'none';
     }
 
-    function printReceipt() {
+  // --- FUNKCE PRO VYKRESLENÍ MAPY NA ÚČTENCE ---
+    let receiptMap = null;
+    let receiptRouting = null;
+    let currentReceiptEmailData = { email: "", textBody: "" }; // Zde držíme data pro e-mail
+
+    function drawReceiptMap(startLatLng, endLatLng) {
+        const mapEl = document.getElementById('receipt-map');
+        if (!startLatLng) { mapEl.style.display = 'none'; return; }
+        
+        mapEl.style.display = 'block';
+
+        if (!receiptMap) {
+            receiptMap = L.map('receipt-map', { zoomControl: false, attributionControl: false }).setView(startLatLng, 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(receiptMap);
+        } else {
+            receiptMap.eachLayer((layer) => { if (layer instanceof L.Marker || layer instanceof L.Polyline) receiptMap.removeLayer(layer); });
+            if (receiptRouting) { receiptMap.removeControl(receiptRouting); receiptRouting = null; }
+        }
+
+        setTimeout(() => { receiptMap.invalidateSize(); }, 200);
+
+        L.marker(startLatLng, {icon: iconPickup}).addTo(receiptMap);
+        
+        if (endLatLng) {
+            L.marker(endLatLng, {icon: iconDropoff}).addTo(receiptMap);
+            receiptRouting = L.Routing.control({
+                waypoints: [L.Routing.waypoint(startLatLng), L.Routing.waypoint(endLatLng)],
+                router: getRouter(2), show: false, addWaypoints: false, createMarker: function() { return null; },
+                lineOptions: { styles: [{ color: '#15803d', opacity: 0.9, weight: 5 }] }
+            }).addTo(receiptMap);
+
+            receiptRouting.on('routesfound', function(e) {
+                setTimeout(() => { receiptMap.fitBounds(L.polyline(e.routes[0].coordinates).getBounds(), { padding: [15, 15] }); }, 300);
+            });
+        } else {
+            setTimeout(() => { receiptMap.setView(startLatLng, 15); }, 200);
+        }
+    }
+
+    function closeReceiptModal() {
+        document.getElementById('receipt-modal').style.display = 'none';
+    }
+
+    function executePrint() {
+        window.print();
+    }
+
+    // --- FUNKCE PRO ODESLÁNÍ E-MAILU ---
+    function sendReceiptEmail() {
+        let emailTo = currentReceiptEmailData.email;
+        
+        // Pokud nemáme e-mail z databáze, nabídneme řidiči, ať jej zadá ručně
+        if (!emailTo || emailTo.trim() === "") {
+            emailTo = prompt("E-mail zákazníka nebyl u jízdy nalezen.\nZadejte e-mail ručně (nebo nechte prázdné pro vyplnění až v mailové aplikaci):", "");
+        }
+        
+        if (emailTo === null) return; // Uživatel klikl na Zrušit
+        
+        const subject = encodeURIComponent("Účtenka za jízdu - Taxi Green");
+        const body = encodeURIComponent(currentReceiptEmailData.textBody);
+        const mailtoUrl = `mailto:${emailTo}?subject=${subject}&body=${body}`;
+        
+        // Trik pro spolehlivé otevření v mobilech a PWA aplikacích
+        const link = document.createElement('a');
+        link.href = mailtoUrl;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // --- TISK Z TAXAMETRU ---
+   function printReceipt() {
         const dName = localStorage.getItem('taxi_green_driver_name') || "Neznámý řidič";
         const dModel = localStorage.getItem('taxi_green_vehicle_model') || "-";
         const dPlate = localStorage.getItem('taxi_green_vehicle_plate') || "-";
         
-        const fText = document.getElementById('pickup').value || "Nezadáno";
+        const fText = document.getElementById('pickup').value || "Nezadáno (dle GPS)";
         const tText = document.getElementById('taxi-display-target').innerText || "Nezadáno";
-        const wCost = taxiWaitCost.toFixed(2);
-        const fareOnly = (taxiBaseFare + (taxiDistanceKm * taxiCurrentRate)).toFixed(2);
-        const total = (parseFloat(fareOnly) + parseFloat(wCost)).toFixed(2);
         
-        document.getElementById('rec-driver').innerText = `${dName} (${dModel}, ${dPlate})`;
+        const wCost = parseFloat(taxiWaitCost).toFixed(2);
+        const distFare = (taxiDistanceKm * taxiCurrentRate).toFixed(2);
+        const total = (20 + parseFloat(distFare) + parseFloat(wCost)).toFixed(2);
+        
+        document.getElementById('rec-driver').innerText = dName;
+        document.getElementById('rec-car').innerText = `${dModel} ${dPlate}`; // Zde zmizely závorky
+        
         document.getElementById('rec-from').innerText = fText;
         document.getElementById('rec-to').innerText = tText;
-        document.getElementById('rec-fare').innerText = fareOnly;
+        
+        document.getElementById('rec-dist').innerText = taxiDistanceKm.toFixed(2);
+        document.getElementById('rec-dist-fare').innerText = distFare;
+        document.getElementById('rec-wait-time').innerText = formatTime(taxiWaitSeconds);
         document.getElementById('rec-wait').innerText = wCost;
         document.getElementById('rec-total').innerText = total;
         
-        document.getElementById('receipt-modal').style.display = 'flex';
-    }
+        let custEmail = "";
+        if (typeof currentEditingOrder !== 'undefined' && currentEditingOrder && currentEditingOrder.email) {
+            custEmail = currentEditingOrder.email;
+        }
 
-    function executePrint() {
-        document.getElementById('receipt-modal').style.display = 'none';
-        window.print();
+        // Příprava dat pro e-mailového klienta
+        currentReceiptEmailData.email = custEmail;
+        currentReceiptEmailData.textBody = `Dobrý den,\n\nzasíláme Vám účtenku za Vaši jízdu s Taxi Green.\n\nDopravce: Taxi služba Jaroslav Musil (IČO: 76126447)\nŘidič: ${dName}\nVozidlo taxi: ${dModel} ${dPlate}\n\nNástup: ${fText}\nVýstup: ${tText}\n\nUjeto: ${taxiDistanceKm.toFixed(2)} km\nČekání: ${formatTime(taxiWaitSeconds)}\nCelkem k úhradě: ${total} Kč\n\nDěkujeme, že cestujete s námi!`;
+
+        document.getElementById('receipt-modal').style.display = 'flex';
+        
+        drawReceiptMap(coordsData.pickup, coordsData.dropoff);
     }
 
     let map = L.map('map', { rotate: true, touchZoom: true, zoomControl: false }).setView([49.4398, 12.9304], 13);
@@ -2727,24 +2840,51 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         viewFullCustomerRoute(data.pickupLat, data.pickupLng, data.dropoffLat, data.dropoffLng, data.waypointsCoords);
     }
 
+ // --- TISK Z HISTORIE ---
     function printAdminReceiptFromMap(orderId) {
         let data = window.adminHistoryOrdersMap[orderId];
         if (!data) return;
+        
         let driverStr = data.driverName || 'Neznámý';
         let carStr = data.driverCar || '-';
         let spzStr = data.driverSpz || '-';
-        let price = data.price || data.calculatedPrice || data.total || '0';
-        printAdminReceipt(driverStr, carStr, spzStr, data.pickup, data.dropoff, price);
+        
+        let price = parseFloat(data.price || data.calculatedPrice || data.total || '0');
+        let dist = parseFloat(data.distance || data.distKm || 0);
+        
+        if (dist === 0 && price > 20) { dist = ((price - 20) / 34).toFixed(1); }
+        
+        // Širší záchyt e-mailu pro případ různých formátů v databázi zákazníků
+        let custEmail = data.email || data.userEmail || data.customerEmail || data.clientEmail || "";
+
+        printAdminReceipt(driverStr, carStr, spzStr, data.pickup, data.dropoff, price, dist, data.pickupLat, data.pickupLng, data.dropoffLat, data.dropoffLng, custEmail);
     }
 
-    function printAdminReceipt(driverStr, carStr, spzStr, pickup, dropoff, price) {
-        document.getElementById('rec-driver').innerText = `${driverStr} (${carStr}, ${spzStr})`;
-        document.getElementById('rec-from').innerText = pickup || "Nezadáno";
+    function printAdminReceipt(driverStr, carStr, spzStr, pickup, dropoff, price, dist, pLat, pLng, dLat, dLng, custEmail) {
+        document.getElementById('rec-driver').innerText = driverStr;
+        document.getElementById('rec-car').innerText = `${carStr} ${spzStr}`; // Bez závorek
+
+        document.getElementById('rec-from').innerText = pickup || "Nezadáno (dle GPS)";
         document.getElementById('rec-to').innerText = dropoff || "Nezadáno";
-        document.getElementById('rec-fare').innerText = price;
+
+        let distFare = Math.max(0, price - 20);
+
+        document.getElementById('rec-dist').innerText = parseFloat(dist).toFixed(2);
+        document.getElementById('rec-dist-fare').innerText = distFare.toFixed(2);
+        
+        document.getElementById('rec-wait-time').innerText = "00:00"; 
         document.getElementById('rec-wait').innerText = "0.00";
-        document.getElementById('rec-total').innerText = price;
+        document.getElementById('rec-total').innerText = parseFloat(price).toFixed(2);
+
+        // Příprava dat pro e-mailového klienta
+        currentReceiptEmailData.email = custEmail;
+        currentReceiptEmailData.textBody = `Dobrý den,\n\nzasíláme Vám kopii účtenky za Vaši jízdu s Taxi Green.\n\nDopravce: Taxi služba Jaroslav Musil (IČO: 76126447)\nŘidič: ${driverStr}\nVozidlo taxi: ${carStr} ${spzStr}\n\nNástup: ${pickup || "Nezadáno"}\nVýstup: ${dropoff || "Nezadáno"}\n\nUjeto: ${parseFloat(dist).toFixed(2)} km\nCelkem k úhradě: ${parseFloat(price).toFixed(2)} Kč\n\nDěkujeme, že cestujete s námi!`;
+
         document.getElementById('receipt-modal').style.display = 'flex';
+
+        let pLatLng = (pLat && pLng) ? L.latLng(pLat, pLng) : null;
+        let dLatLng = (dLat && dLng) ? L.latLng(dLat, dLng) : null;
+        drawReceiptMap(pLatLng, dLatLng);
     }
 
     function viewFullCustomerRoute(pLat, pLng, dLat, dLng, waypoints) {
