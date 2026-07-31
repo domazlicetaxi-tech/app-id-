@@ -293,7 +293,8 @@ body.admin-mode #app-container{
         <div style="text-align: center; font-size: 13px; margin-bottom: 10px; border-bottom: 1px solid #000; padding-bottom: 10px;">
             <strong>Taxi služba Jaroslav Musil</strong><br>
             IČO: 76126447<br>
-            Msgre.B.Staša 54, 344 01 Domažlice
+            Msgre.B.Staša 54, 344 01 Domažlice<br>
+            <strong>Nejsem plátcem DPH</strong>
         </div>
         
         <!-- ODDĚLENÝ ŘIDIČ A VOZIDLO -->
@@ -314,11 +315,11 @@ body.admin-mode #app-container{
                 <td style="text-align: right; padding: 3px 0;">20.00 Kč</td>
             </tr>
             <tr>
-                <td style="padding: 3px 0;">Ujeto (<span id="rec-dist">0.00</span> km):</td>
+                <td style="padding: 3px 0;">Ujeto (<span id="rec-dist">0.00</span> km á <span id="rec-rate">0</span> Kč/km):</td>
                 <td style="text-align: right; padding: 3px 0;"><span id="rec-dist-fare">0.00</span> Kč</td>
             </tr>
             <tr>
-                <td style="padding: 3px 0;">Čekání (<span id="rec-wait-time">00:00</span>):</td>
+                <td style="padding: 3px 0;">Čekání (<span id="rec-wait-time">00:00</span> á 6 Kč/min):</td>
                 <td style="text-align: right; padding: 3px 0;"><span id="rec-wait">0.00</span> Kč</td>
             </tr>
         </table>
@@ -2277,6 +2278,7 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         document.getElementById('rec-to').innerText = tText;
         
         document.getElementById('rec-dist').innerText = taxiDistanceKm.toFixed(2);
+        document.getElementById('rec-rate').innerText = taxiCurrentRate;
         document.getElementById('rec-dist-fare').innerText = distFare;
         document.getElementById('rec-wait-time').innerText = formatTime(taxiWaitSeconds);
         document.getElementById('rec-wait').innerText = wCost;
@@ -2289,7 +2291,7 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
 
         // Příprava dat pro e-mailového klienta
         currentReceiptEmailData.email = custEmail;
-        currentReceiptEmailData.textBody = `Dobrý den,\n\nzasíláme Vám účtenku za Vaši jízdu s Taxi Green.\n\nDopravce: Taxi služba Jaroslav Musil (IČO: 76126447)\nŘidič: ${dName}\nVozidlo taxi: ${dModel} ${dPlate}\n\nNástup: ${fText}\nVýstup: ${tText}\n\nUjeto: ${taxiDistanceKm.toFixed(2)} km\nČekání: ${formatTime(taxiWaitSeconds)}\nCelkem k úhradě: ${total} Kč\n\nDěkujeme, že cestujete s námi!`;
+        currentReceiptEmailData.textBody = `Dobrý den,\n\nzasíláme Vám účtenku za Vaši jízdu s Taxi Green.\n\nDopravce: Taxi služba Jaroslav Musil (IČO: 76126447) - Nejsem plátcem DPH\nŘidič: ${dName}\nVozidlo taxi: ${dModel} ${dPlate}\n\nNástup: ${fText}\nVýstup: ${tText}\n\nUjeto: ${taxiDistanceKm.toFixed(2)} km (á ${taxiCurrentRate} Kč/km)\nČekání: ${formatTime(taxiWaitSeconds)} (á 6 Kč/min)\nCelkem k úhradě: ${total} Kč\n\nDěkujeme, že cestujete s námi!`;
 
         document.getElementById('receipt-modal').style.display = 'flex';
         
@@ -2851,7 +2853,7 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         viewFullCustomerRoute(data.pickupLat, data.pickupLng, data.dropoffLat, data.dropoffLng, data.waypointsCoords);
     }
 
- // --- TISK Z HISTORIE ---
+// --- TISK Z HISTORIE ---
     function printAdminReceiptFromMap(orderId) {
         let data = window.adminHistoryOrdersMap[orderId];
         if (!data) return;
@@ -2865,13 +2867,19 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         
         if (dist === 0 && price > 20) { dist = ((price - 20) / 34).toFixed(1); }
         
+        // Vypočítáme sazbu zpětně (např. jízda z mapy na okruh bude automaticky 13, město 34 atd.)
+        let ratePerKm = 13;
+        if (dist > 0) {
+            ratePerKm = Math.round((price - 20) / dist);
+        }
+        
         // Širší záchyt e-mailu pro případ různých formátů v databázi zákazníků
         let custEmail = data.email || data.userEmail || data.customerEmail || data.clientEmail || "";
 
-        printAdminReceipt(driverStr, carStr, spzStr, data.pickup, data.dropoff, price, dist, data.pickupLat, data.pickupLng, data.dropoffLat, data.dropoffLng, custEmail);
+        printAdminReceipt(driverStr, carStr, spzStr, data.pickup, data.dropoff, price, dist, data.pickupLat, data.pickupLng, data.dropoffLat, data.dropoffLng, custEmail, ratePerKm);
     }
 
-    function printAdminReceipt(driverStr, carStr, spzStr, pickup, dropoff, price, dist, pLat, pLng, dLat, dLng, custEmail) {
+    function printAdminReceipt(driverStr, carStr, spzStr, pickup, dropoff, price, dist, pLat, pLng, dLat, dLng, custEmail, ratePerKm) {
         document.getElementById('rec-driver').innerText = driverStr;
         document.getElementById('rec-car').innerText = `${carStr} ${spzStr}`; // Bez závorek
 
@@ -2881,6 +2889,7 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         let distFare = Math.max(0, price - 20);
 
         document.getElementById('rec-dist').innerText = parseFloat(dist).toFixed(2);
+        document.getElementById('rec-rate').innerText = ratePerKm;
         document.getElementById('rec-dist-fare').innerText = distFare.toFixed(2);
         
         document.getElementById('rec-wait-time').innerText = "00:00"; 
@@ -2889,7 +2898,7 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
 
         // Příprava dat pro e-mailového klienta
         currentReceiptEmailData.email = custEmail;
-        currentReceiptEmailData.textBody = `Dobrý den,\n\nzasíláme Vám kopii účtenky za Vaši jízdu s Taxi Green.\n\nDopravce: Taxi služba Jaroslav Musil (IČO: 76126447)\nŘidič: ${driverStr}\nVozidlo taxi: ${carStr} ${spzStr}\n\nNástup: ${pickup || "Nezadáno"}\nVýstup: ${dropoff || "Nezadáno"}\n\nUjeto: ${parseFloat(dist).toFixed(2)} km\nCelkem k úhradě: ${parseFloat(price).toFixed(2)} Kč\n\nDěkujeme, že cestujete s námi!`;
+        currentReceiptEmailData.textBody = `Dobrý den,\n\nzasíláme Vám kopii účtenky za Vaši jízdu s Taxi Green.\n\nDopravce: Taxi služba Jaroslav Musil (IČO: 76126447) - Nejsem plátcem DPH\nŘidič: ${driverStr}\nVozidlo taxi: ${carStr} ${spzStr}\n\nNástup: ${pickup || "Nezadáno"}\nVýstup: ${dropoff || "Nezadáno"}\n\nUjeto: ${parseFloat(dist).toFixed(2)} km (á ${ratePerKm} Kč/km)\nCelkem k úhradě: ${parseFloat(price).toFixed(2)} Kč\n\nDěkujeme, že cestujete s námi!`;
 
         document.getElementById('receipt-modal').style.display = 'flex';
 
