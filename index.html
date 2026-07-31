@@ -1218,7 +1218,7 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
             if (realtimeDriverMarker) {
                 realtimeDriverMarker.setLatLng(currentPos);
             } else {
-                realtimeDriverMarker = L.marker(currentPos, { icon: greenCarIcon, zIndexOffset: 1000 }).addTo(map);
+                realtimeDriverMarker = L.marker(currentPos, { icon: getMyCarIcon(), zIndexOffset: 1000 }).addTo(map);
             }
 
             const now = Date.now();
