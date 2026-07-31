@@ -1490,7 +1490,11 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
             document.getElementById('tb-vehicle-number').innerText = vIndex;
             document.getElementById('tb-vehicle-name').innerText = vModel;
             document.getElementById('tb-vehicle-spz').innerText = vPlate;
-            
+
+            // Okamžitá změna barvy autíčka na mapě po přihlášení
+            if (realtimeDriverMarker && typeof getMyCarIcon === 'function') {
+                realtimeDriverMarker.setIcon(getMyCarIcon());
+            }
             document.getElementById('vehicle-selection-wrapper').style.display = 'none';
             document.getElementById('top-bar-vehicle').style.display = 'flex';
             document.getElementById('app-main-controls').style.display = 'block';
