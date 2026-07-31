@@ -2269,6 +2269,10 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         }
 
         currentReceiptEmailData.email = custEmail;
+        
+        // Vygenerování odkazu na Google Mapy (Start a Cíl)
+        const googleMapsLink = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(fText)}&destination=${encodeURIComponent(tText)}`;
+
         currentReceiptEmailData.textBody = 
 `----------------------------------------
           ÚČTENKA TAXI GREEN
@@ -2287,7 +2291,10 @@ Nástupní sazba:      20.00 Kč
 Ujeto (${taxiDistanceKm.toFixed(2)} km):       ${distFare} Kč
 Čekání (${formatTime(taxiWaitSeconds)}):          ${wCost} Kč
 ----------------------------------------
-CELKEM K ÚHRADĚ:     ${total} Kč
+CELKEM K ÚHRADĚ:   ${total} Kč
+----------------------------------------
+Odkaz na trasu jízdy v mapě:
+${googleMapsLink}
 ----------------------------------------`;
 
         document.getElementById('receipt-modal').style.display = 'flex';
@@ -2885,6 +2892,12 @@ CELKEM K ÚHRADĚ:     ${total} Kč
         document.getElementById('rec-total').innerText = parseFloat(price).toFixed(2);
 
         currentReceiptEmailData.email = custEmail;
+        
+        // Vygenerování odkazu na Google Mapy podle souřadnic nebo textu
+        let mapOrigin = (pLat && pLng) ? `${pLat},${pLng}` : pickup;
+        let mapDestination = (dLat && dLng) ? `${dLat},${dLng}` : dropoff;
+        const googleMapsLink = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(mapOrigin || "")}&destination=${encodeURIComponent(mapDestination || "")}`;
+
         currentReceiptEmailData.textBody = 
 `----------------------------------------
           ÚČTENKA TAXI GREEN
@@ -2904,6 +2917,9 @@ Ujeto (${parseFloat(dist).toFixed(2)} km):       ${distFare.toFixed(2)} Kč
 Čekání (00:00):          0.00 Kč
 ----------------------------------------
 CELKEM K ÚHRADĚ:     ${parseFloat(price).toFixed(2)} Kč
+----------------------------------------
+Odkaz na trasu jízdy v mapě:
+${googleMapsLink}
 ----------------------------------------`;
 
         document.getElementById('receipt-modal').style.display = 'flex';
