@@ -2226,22 +2226,27 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
     function sendReceiptEmail() {
         let emailTo = currentReceiptEmailData.email;
         
+        // Pokud nemáme e-mail z databáze, nabídneme řidiči, ať jej zadá ručně
         if (!emailTo || emailTo.trim() === "") {
-            emailTo = prompt("E-mail zákazníka nebyl u jízdy nalezen.\nZadejte e-mail ručně:", "");
+            emailTo = prompt("E-mail zákazníka nebyl u jízdy nalezen.\nZadejte e-mail ručně (nebo nechte prázdné pro vyplnění v aplikaci):", "");
         }
         
+        // Pokud uživatel zmáčkl Storno (storno vrátí null)
         if (emailTo === null) return; 
         
         const targetEmail = emailTo.trim();
-        const subject = encodeURIComponent("Zasíláme vám účtenku za vaši jízdu Taxi Green");
+        const subject = encodeURIComponent("Účtenka za jízdu - Taxi Green");
         const body = encodeURIComponent(currentReceiptEmailData.textBody);
         
+        // Sestavení mailto odkazu
         const mailtoUrl = `mailto:${targetEmail}?subject=${subject}&body=${body}`;
+        
+        // Přímé nastavení pro mobilní telefony a PWA
         window.location.href = mailtoUrl;
     }
 
     // --- TISK Z TAXAMETRU ---
-    function printReceipt() {
+   function printReceipt() {
         const dName = localStorage.getItem('taxi_green_driver_name') || "Neznámý řidič";
         const dModel = localStorage.getItem('taxi_green_vehicle_model') || "-";
         const dPlate = localStorage.getItem('taxi_green_vehicle_plate') || "-";
@@ -2254,9 +2259,11 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         const total = (20 + parseFloat(distFare) + parseFloat(wCost)).toFixed(2);
         
         document.getElementById('rec-driver').innerText = dName;
-        document.getElementById('rec-car').innerText = `${dModel} ${dPlate}`;
+        document.getElementById('rec-car').innerText = `${dModel} ${dPlate}`; // Zde zmizely závorky
+        
         document.getElementById('rec-from').innerText = fText;
         document.getElementById('rec-to').innerText = tText;
+        
         document.getElementById('rec-dist').innerText = taxiDistanceKm.toFixed(2);
         document.getElementById('rec-dist-fare').innerText = distFare;
         document.getElementById('rec-wait-time').innerText = formatTime(taxiWaitSeconds);
@@ -2268,36 +2275,12 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
             custEmail = currentEditingOrder.email;
         }
 
+        // Příprava dat pro e-mailového klienta
         currentReceiptEmailData.email = custEmail;
-        
-        // Vygenerování odkazu na Google Mapy (Start a Cíl)
-        const googleMapsLink = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(fText)}&destination=${encodeURIComponent(tText)}`;
-
-        currentReceiptEmailData.textBody = 
-`----------------------------------------
-          ÚČTENKA TAXI GREEN
-----------------------------------------
-Taxi služba Jaroslav Musil
-IČO: 76126447
-Msgre. B. Staša 54, 344 01 Domažlice
-----------------------------------------
-Řidič: ${dName}
-Vozidlo taxi: ${dModel} ${dPlate}
-----------------------------------------
-Nástup: ${fText}
-Výstup: ${tText}
-----------------------------------------
-Nástupní sazba:      20.00 Kč
-Ujeto (${taxiDistanceKm.toFixed(2)} km):       ${distFare} Kč
-Čekání (${formatTime(taxiWaitSeconds)}):          ${wCost} Kč
-----------------------------------------
-CELKEM K ÚHRADĚ:   ${total} Kč
-----------------------------------------
-Odkaz na trasu jízdy v mapě:
-${googleMapsLink}
-----------------------------------------`;
+        currentReceiptEmailData.textBody = `Dobrý den,\n\nzasíláme Vám účtenku za Vaši jízdu s Taxi Green.\n\nDopravce: Taxi služba Jaroslav Musil (IČO: 76126447)\nŘidič: ${dName}\nVozidlo taxi: ${dModel} ${dPlate}\n\nNástup: ${fText}\nVýstup: ${tText}\n\nUjeto: ${taxiDistanceKm.toFixed(2)} km\nČekání: ${formatTime(taxiWaitSeconds)}\nCelkem k úhradě: ${total} Kč\n\nDěkujeme, že cestujete s námi!`;
 
         document.getElementById('receipt-modal').style.display = 'flex';
+        
         drawReceiptMap(coordsData.pickup, coordsData.dropoff);
     }
 
@@ -2878,7 +2861,7 @@ ${googleMapsLink}
 
     function printAdminReceipt(driverStr, carStr, spzStr, pickup, dropoff, price, dist, pLat, pLng, dLat, dLng, custEmail) {
         document.getElementById('rec-driver').innerText = driverStr;
-        document.getElementById('rec-car').innerText = `${carStr} ${spzStr}`;
+        document.getElementById('rec-car').innerText = `${carStr} ${spzStr}`; // Bez závorek
 
         document.getElementById('rec-from').innerText = pickup || "Nezadáno (dle GPS)";
         document.getElementById('rec-to').innerText = dropoff || "Nezadáno";
@@ -2887,40 +2870,14 @@ ${googleMapsLink}
 
         document.getElementById('rec-dist').innerText = parseFloat(dist).toFixed(2);
         document.getElementById('rec-dist-fare').innerText = distFare.toFixed(2);
+        
         document.getElementById('rec-wait-time').innerText = "00:00"; 
         document.getElementById('rec-wait').innerText = "0.00";
         document.getElementById('rec-total').innerText = parseFloat(price).toFixed(2);
 
+        // Příprava dat pro e-mailového klienta
         currentReceiptEmailData.email = custEmail;
-        
-        // Vygenerování odkazu na Google Mapy podle souřadnic nebo textu
-        let mapOrigin = (pLat && pLng) ? `${pLat},${pLng}` : pickup;
-        let mapDestination = (dLat && dLng) ? `${dLat},${dLng}` : dropoff;
-        const googleMapsLink = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(mapOrigin || "")}&destination=${encodeURIComponent(mapDestination || "")}`;
-
-        currentReceiptEmailData.textBody = 
-`----------------------------------------
-          ÚČTENKA TAXI GREEN
-----------------------------------------
-Taxi služba Jaroslav Musil
-IČO: 76126447
-Msgre. B. Staša 54, 344 01 Domažlice
-----------------------------------------
-Řidič: ${driverStr}
-Vozidlo taxi: ${carStr} ${spzStr}
-----------------------------------------
-Nástup: ${pickup || "Nezadáno"}
-Výstup: ${dropoff || "Nezadáno"}
-----------------------------------------
-Nástupní sazba:      20.00 Kč
-Ujeto (${parseFloat(dist).toFixed(2)} km):       ${distFare.toFixed(2)} Kč
-Čekání (00:00):          0.00 Kč
-----------------------------------------
-CELKEM K ÚHRADĚ:     ${parseFloat(price).toFixed(2)} Kč
-----------------------------------------
-Odkaz na trasu jízdy v mapě:
-${googleMapsLink}
-----------------------------------------`;
+        currentReceiptEmailData.textBody = `Dobrý den,\n\nzasíláme Vám kopii účtenky za Vaši jízdu s Taxi Green.\n\nDopravce: Taxi služba Jaroslav Musil (IČO: 76126447)\nŘidič: ${driverStr}\nVozidlo taxi: ${carStr} ${spzStr}\n\nNástup: ${pickup || "Nezadáno"}\nVýstup: ${dropoff || "Nezadáno"}\n\nUjeto: ${parseFloat(dist).toFixed(2)} km\nCelkem k úhradě: ${parseFloat(price).toFixed(2)} Kč\n\nDěkujeme, že cestujete s námi!`;
 
         document.getElementById('receipt-modal').style.display = 'flex';
 
