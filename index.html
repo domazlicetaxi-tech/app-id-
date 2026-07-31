@@ -1095,23 +1095,136 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
     let locationSharingActive = false;
     
     let globalDriverWatchId = null;
+    let lastDbUpdateTime = 0;
+    let otherDriversMarkers = {};
+    let otherDriversListener = null;
 
+    // Seznam jmen, které se na mapě nezobrazí
+    const hiddenAccounts = ["jaroslav musil", "admin", "dispatching", "dispecink", "dispečink"];
+
+    // Funkce pro určení barvy podle čísla auta
+    function getCarColorByIndex(index) {
+        const idx = parseInt(index);
+        switch(idx) {
+            case 1: return "#f97316"; // Oranžová (Opel Zafira)
+            case 2: return "#eab308"; // Žlutá
+            case 3: return "#a855f7"; // Fialová
+            case 5: return "#ec4899"; // Růžová
+            default: return "#3b82f6"; // Modrá (Výchozí pro jakákoliv jiná čísla)
+        }
+    }
+
+    // Funkce pro generování obarveného autíčka se jmenovkou
+    function createDynamicCarIcon(color, driverName) {
+        return L.divIcon({
+            html: `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="32px" height="32px" style="filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.4));">
+                        <polygon points="30,12 20,2 40,2" fill="#ffeb3b" opacity="0.6"/>
+                        <polygon points="70,12 60,2 80,2" fill="#ffeb3b" opacity="0.6"/>
+                        <path d="M25,30 L25,85 A8,8 0 0,0 33,93 L67,93 A8,8 0 0,0 75,85 L75,30 L65,12 L35,12 Z" fill="${color}" stroke="#1e293b" stroke-width="4"/>
+                        <polygon points="35,32 65,32 60,18 40,18" fill="#1e293b"/>
+                        <rect x="35" y="70" width="30" height="12" rx="2" fill="#1e293b"/>
+                        <rect x="36" y="44" width="28" height="10" rx="2" fill="#ffeb3b" stroke="#000" stroke-width="1"/>
+                        <text x="50" y="52" font-size="7" font-weight="900" fill="#000" text-anchor="middle" font-family="sans-serif">TAXI</text>
+                    </svg>
+                    <div style="background: rgba(0,0,0,0.8); color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px; margin-top: -2px; white-space: nowrap; font-weight: bold; border: 1px solid #333;">${driverName}</div>
+                   </div>`,
+            className: 'dynamic-car-icon',
+            iconSize: [40, 55],
+            iconAnchor: [20, 27]
+        });
+    }
+
+    // Funkce pro naslouchání ostatním řidičům
+    function startListeningToOtherDrivers() {
+        if (!db) return;
+        const myName = localStorage.getItem('taxi_green_driver_name') || "";
+
+        otherDriversListener = db.collection("active_drivers").onSnapshot(snapshot => {
+            let bounds = L.latLngBounds();
+            let hasOthers = false;
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const driverName = doc.id;
+                
+                if (driverName === myName) return;
+                if (hiddenAccounts.includes(driverName.toLowerCase().trim())) return;
+
+                const now = Date.now();
+                const lastUpdate = data.timestamp ? data.timestamp.toMillis() : now;
+                if (now - lastUpdate > 5 * 60 * 1000) return; // Skryje řidiče po 5 minutách neaktivity
+
+                const pos = L.latLng(data.lat, data.lng);
+                bounds.extend(pos);
+                hasOthers = true;
+
+                const carColor = getCarColorByIndex(data.vehicleIndex);
+                const icon = createDynamicCarIcon(carColor, driverName);
+
+                if (otherDriversMarkers[driverName]) {
+                    otherDriversMarkers[driverName].setLatLng(pos);
+                    otherDriversMarkers[driverName].setIcon(icon);
+                } else {
+                    otherDriversMarkers[driverName] = L.marker(pos, { icon: icon, zIndexOffset: 500 }).addTo(map);
+                }
+            });
+
+            if (realtimeDriverMarker) bounds.extend(realtimeDriverMarker.getLatLng());
+
+            const isNavigating = routingControls.length > 0;
+            const isTaximeter = document.body.classList.contains('taxameter-active');
+            
+            if (hasOthers && !isNavigating && !isTaximeter && !isUserInteracting) {
+                map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+            }
+        });
+    }
+
+    function stopListeningToOtherDrivers() {
+        if (otherDriversListener) {
+            otherDriversListener();
+            otherDriversListener = null;
+        }
+        for (let key in otherDriversMarkers) {
+            map.removeLayer(otherDriversMarkers[key]);
+        }
+        otherDriversMarkers = {};
+    }
+
+    // Nová hlavní funkce pro sledování
     function startGlobalDriverTracking() {
         if (!navigator.geolocation) return;
-        if (globalDriverWatchId) return; // Zabrání vícenásobnému spuštění
+        if (globalDriverWatchId) return;
+
+        const myName = localStorage.getItem('taxi_green_driver_name') || "";
+        const isHidden = hiddenAccounts.includes(myName.toLowerCase().trim());
 
         globalDriverWatchId = navigator.geolocation.watchPosition((pos) => {
             let currentPos = L.latLng(pos.coords.latitude, pos.coords.longitude);
             
-            // Pokud ikona autíčka už existuje, jen posuneme její pozici. Jinak ji vytvoříme.
             if (realtimeDriverMarker) {
                 realtimeDriverMarker.setLatLng(currentPos);
             } else {
                 realtimeDriverMarker = L.marker(currentPos, { icon: greenCarIcon, zIndexOffset: 1000 }).addTo(map);
             }
+
+            const now = Date.now();
+            if (db && !isHidden && (now - lastDbUpdateTime > 10000)) {
+                const vIndex = localStorage.getItem('taxi_green_vehicle_index') || "0";
+                db.collection("active_drivers").doc(myName).set({
+                    lat: currentPos.lat,
+                    lng: currentPos.lng,
+                    vehicleIndex: vIndex,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                }).catch(e => console.warn("Chyba odesílání polohy:", e));
+                lastDbUpdateTime = now;
+            }
         }, (err) => {
             console.warn("Chyba globální GPS polohy: ", err);
         }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 });
+
+        startListeningToOtherDrivers();
     }
 
     function stopGlobalDriverTracking() {
@@ -1247,6 +1360,13 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
     }
    
     function logoutDriver() { 
+        // Smazání řidiče z Firebase při odhlášení
+        const myName = localStorage.getItem('taxi_green_driver_name');
+        if (db && myName) {
+            db.collection("active_drivers").doc(myName).delete().catch(()=>{});
+        }
+        stopListeningToOtherDrivers();
+
         localStorage.removeItem('taxi_green_driver_logged'); 
         localStorage.removeItem('taxi_green_driver_name'); 
         localStorage.removeItem('taxi_green_driver_firstname');
