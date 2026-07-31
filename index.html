@@ -2306,7 +2306,7 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         taxiLastPosition = currentPos;
         
         if (realtimeDriverMarker) { realtimeDriverMarker.setLatLng(currentPos); } 
-        else { realtimeDriverMarker = L.marker(currentPos, { icon: greenCarIcon, zIndexOffset: 1000 }).addTo(map); } 
+        else { realtimeDriverMarker = L.marker(currentPos, { icon: getMyCarIcon(), zIndexOffset: 1000 }).addTo(map); } 
         
         if (activeOrderId && db && locationSharingActive) { db.collection("taxi_orders").doc(activeOrderId).update({ driverLat: currentPos.lat, driverLng: currentPos.lng }); }
     }
