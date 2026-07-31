@@ -2222,28 +2222,27 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         window.print();
     }
 
-    // --- FUNKCE PRO ODESLÁNÍ E-MAILU ---
+   // --- FUNKCE PRO ODESLÁNÍ E-MAILU ---
     function sendReceiptEmail() {
         let emailTo = currentReceiptEmailData.email;
         
         // Pokud nemáme e-mail z databáze, nabídneme řidiči, ať jej zadá ručně
         if (!emailTo || emailTo.trim() === "") {
-            emailTo = prompt("E-mail zákazníka nebyl u jízdy nalezen.\nZadejte e-mail ručně (nebo nechte prázdné pro vyplnění až v mailové aplikaci):", "");
+            emailTo = prompt("E-mail zákazníka nebyl u jízdy nalezen.\nZadejte e-mail ručně (nebo nechte prázdné pro vyplnění v aplikaci):", "");
         }
         
-        if (emailTo === null) return; // Uživatel klikl na Zrušit
+        // Pokud uživatel zmáčkl Storno (storno vrátí null)
+        if (emailTo === null) return; 
         
+        const targetEmail = emailTo.trim();
         const subject = encodeURIComponent("Účtenka za jízdu - Taxi Green");
         const body = encodeURIComponent(currentReceiptEmailData.textBody);
-        const mailtoUrl = `mailto:${emailTo}?subject=${subject}&body=${body}`;
         
-        // Trik pro spolehlivé otevření v mobilech a PWA aplikacích
-        const link = document.createElement('a');
-        link.href = mailtoUrl;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // Sestavení mailto odkazu
+        const mailtoUrl = `mailto:${targetEmail}?subject=${subject}&body=${body}`;
+        
+        // Přímé nastavení pro mobilní telefony a PWA
+        window.location.href = mailtoUrl;
     }
 
     // --- TISK Z TAXAMETRU ---
