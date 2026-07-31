@@ -2181,7 +2181,7 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
     let receiptRouting = null;
     let currentReceiptEmailData = { email: "", textBody: "" }; // Zde držíme data pro e-mail
 
-    function drawReceiptMap(startLatLng, endLatLng) {
+   function drawReceiptMap(startLatLng, endLatLng, ratePerKm) {
         const mapEl = document.getElementById('receipt-map');
         if (!startLatLng) { mapEl.style.display = 'none'; return; }
         
@@ -2198,23 +2198,32 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         setTimeout(() => { receiptMap.invalidateSize(); }, 200);
 
         const baseCoords = L.latLng(49.439841, 12.927355);
-        L.marker(baseCoords, {icon: iconBase}).addTo(receiptMap); 
+        
+        // Zobrazí základnu na účtence jen u jízd mimo město
+        if (ratePerKm !== 34) {
+            L.marker(baseCoords, {icon: iconBase}).addTo(receiptMap); 
+        }
 
         L.marker(startLatLng, {icon: iconPickup}).addTo(receiptMap);
         
         if (endLatLng) {
             L.marker(endLatLng, {icon: iconDropoff}).addTo(receiptMap);
             
-            let routePoints = [
-                L.Routing.waypoint(baseCoords),
-                L.Routing.waypoint(startLatLng),
-                L.Routing.waypoint(endLatLng),
-                L.Routing.waypoint(baseCoords)
-            ];
+            let routePoints = [];
+            
+            // Konstrukce cesty se striktními body (createWaypoint vynutí otočení na místě)
+            if (ratePerKm !== 34) {
+                routePoints.push(createWaypoint(baseCoords));
+            }
+            routePoints.push(createWaypoint(startLatLng));
+            routePoints.push(createWaypoint(endLatLng));
+            if (ratePerKm !== 34) {
+                routePoints.push(createWaypoint(baseCoords));
+            }
 
             receiptRouting = L.Routing.control({
                 waypoints: routePoints,
-                router: getRouter(4),
+                router: getRouter(routePoints.length),
                 show: false, addWaypoints: false, createMarker: function() { return null; },
                 lineOptions: { styles: [{ color: '#15803d', opacity: 0.9, weight: 5 }] }
             }).addTo(receiptMap);
@@ -2295,7 +2304,7 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
 
         document.getElementById('receipt-modal').style.display = 'flex';
         
-        drawReceiptMap(coordsData.pickup, coordsData.dropoff);
+        drawReceiptMap(coordsData.pickup, coordsData.dropoff, taxiCurrentRate);
     }
 
     let map = L.map('map', { rotate: true, touchZoom: true, zoomControl: false }).setView([49.4398, 12.9304], 13);
@@ -2850,7 +2859,16 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
     function viewFullCustomerRouteFromHistory(orderId) {
         let data = window.adminHistoryOrdersMap[orderId];
         if (!data) return alert("Chyba načtení dat objednávky z paměti.");
-        viewFullCustomerRoute(data.pickupLat, data.pickupLng, data.dropoffLat, data.dropoffLng, data.waypointsCoords);
+        
+        // Zpětný výpočet sazby pro zjištění, zda jde o jízdu po městě (34) nebo mimo (13)
+        let price = parseFloat(data.price || data.calculatedPrice || data.total || '0');
+        let dist = parseFloat(data.distance || data.distKm || 0);
+        if (dist === 0 && price > 20) { dist = ((price - 20) / 34).toFixed(1); }
+        
+        let ratePerKm = 13;
+        if (dist > 0) { ratePerKm = Math.round((price - 20) / dist); }
+
+        viewFullCustomerRoute(data.pickupLat, data.pickupLng, data.dropoffLat, data.dropoffLng, data.waypointsCoords, ratePerKm);
     }
 
 // --- TISK Z HISTORIE ---
@@ -2904,13 +2922,12 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
 
         let pLatLng = (pLat && pLng) ? L.latLng(pLat, pLng) : null;
         let dLatLng = (dLat && dLng) ? L.latLng(dLat, dLng) : null;
-        drawReceiptMap(pLatLng, dLatLng);
+        drawReceiptMap(pLatLng, dLatLng, ratePerKm);
     }
 
-    function viewFullCustomerRoute(pLat, pLng, dLat, dLng, waypoints) {
+   function viewFullCustomerRoute(pLat, pLng, dLat, dLng, waypoints, ratePerKm) {
         if (!pLat || !pLng) return alert("Chybí GPS souřadnice místa nakládky pro vykreslení trasy.");
         
-        // Návrat do hlavní aplikace
         showSection('section-app');
         const btnBack = document.getElementById('btn-back-to-admin');
         if (btnBack) btnBack.style.display = 'block';
@@ -2918,23 +2935,21 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         clearRoutes();
         tempMarkers.clearLayers(); 
         
-        // Základna Albert
         let baseCoords = L.latLng(49.439841, 12.927355);
         let pickupLatLng = L.latLng(pLat, pLng);
         let dropoffLatLng = (dLat && dLng) ? L.latLng(dLat, dLng) : null;
+        let routePoints = [];
 
-        L.marker(baseCoords, {icon: iconBase}).addTo(tempMarkers).bindPopup("Sídlo firmy (Albert)");
-        L.marker(pickupLatLng, {icon: iconPickup}).addTo(tempMarkers).bindPopup("Místo nakládky");
-        if (dropoffLatLng) {
-            L.marker(dropoffLatLng, {icon: iconDropoff}).addTo(tempMarkers).bindPopup("Místo vykládky");
+        // ZÁKLADNA: Přidáme ji pouze, pokud se nejedná o jízdu po městě
+        if (ratePerKm !== 34) {
+            L.marker(baseCoords, {icon: iconBase}).addTo(tempMarkers).bindPopup("Sídlo firmy (Albert)");
+            routePoints.push(createWaypoint(baseCoords));
         }
+
+        L.marker(pickupLatLng, {icon: iconPickup}).addTo(tempMarkers).bindPopup("Místo nakládky");
+        routePoints.push(createWaypoint(pickupLatLng));
         
         setTimeout(() => { if (typeof map !== 'undefined') map.invalidateSize(); }, 300);
-        
-        let routePoints = [];
-        // Vytvoření trasy dle zadání: Základna -> Nakládka -> Body -> Vykládka
-        routePoints.push(createWaypoint(baseCoords));
-        routePoints.push(createWaypoint(pickupLatLng));
         
         if (waypoints && Array.isArray(waypoints)) {
             waypoints.forEach((wp, idx) => {
@@ -2945,10 +2960,13 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         }
         
         if (dropoffLatLng) {
+            L.marker(dropoffLatLng, {icon: iconDropoff}).addTo(tempMarkers).bindPopup("Místo vykládky");
             routePoints.push(createWaypoint(dropoffLatLng));
             
-            // PŘIDÁNO: Návrat zpět na základnu (Albert), aby trasa plně odpovídala zákaznické aplikaci
-            routePoints.push(createWaypoint(baseCoords));
+            // ZÁKLADNA ZPĚT: Pouze pokud se nejedná o město
+            if (ratePerKm !== 34) {
+                routePoints.push(createWaypoint(baseCoords));
+            }
         }
 
         let rc = L.Routing.control({
