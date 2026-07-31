@@ -1415,20 +1415,53 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         } catch (err) { console.error("Chyba při načítání vozidel pro řidiče:", err); }
     }
 
-    function confirmVehicleSelection() {
+    async function confirmVehicleSelection() {
         const select = document.getElementById('driver-vehicle-select');
         if (!select.value) {
             alert("Vyberte prosím vozidlo ze seznamu.");
             return;
         }
         
-        localStorage.setItem('taxi_green_vehicle_id', select.value);
         const selectedOption = select.options[select.selectedIndex];
-        
         const vModel = selectedOption.getAttribute('data-model');
         const vPlate = selectedOption.getAttribute('data-plate');
         const vIndex = selectedOption.getAttribute('data-index'); 
         
+        const myName = localStorage.getItem('taxi_green_driver_name') || "";
+
+        // NOVÁ POJISTKA - KONTROLA FIREBASE
+        if (db) {
+            try {
+                // Najdeme všechny aktivní řidiče na tomto voze
+                const snapshot = await db.collection("active_drivers").where("vehicleIndex", "==", vIndex).get();
+                let occupiedBy = null;
+                const now = Date.now();
+
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const driverName = doc.id;
+                    
+                    // Pokud je to někdo jiný
+                    if (driverName !== myName) {
+                        const lastUpdate = data.timestamp ? data.timestamp.toMillis() : now;
+                        // Pokud o sobě dal vědět v posledních 10 minutách, považujeme ho za aktivního
+                        if (now - lastUpdate < 10 * 60 * 1000) {
+                            occupiedBy = driverName;
+                        }
+                    }
+                });
+
+                if (occupiedBy) {
+                    const proceed = confirm(`⚠️ POZOR!\n\nNa toto vozidlo (č. ${vIndex}) je momentálně přihlášený kolega:\n👤 ${occupiedBy}\n\nPožádejte ho, ať se ve své aplikaci odhlásí.\nChcete i přesto pokračovat a vozidlo mu "sebrat"?`);
+                    if (!proceed) return; // Uživatel klikl na Zrušit, přihlášení se přeruší
+                }
+            } catch (err) {
+                console.warn("Chyba při kontrole obsazenosti vozidla:", err);
+            }
+        }
+        
+        // Pokud je vše v pořádku nebo to řidič odsouhlasil, pokračujeme v uložení
+        localStorage.setItem('taxi_green_vehicle_id', select.value);
         localStorage.setItem('taxi_green_vehicle_model', vModel);
         localStorage.setItem('taxi_green_vehicle_plate', vPlate);
         localStorage.setItem('taxi_green_vehicle_index', vIndex);
