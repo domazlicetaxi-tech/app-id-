@@ -2228,7 +2228,7 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
     let receiptRouting = null;
     let currentReceiptEmailData = { email: "", textBody: "" }; // Zde držíme data pro e-mail
 
-   function drawReceiptMap(startLatLng, endLatLng, ratePerKm) {
+      function drawReceiptMap(startLatLng, endLatLng, addBase) {
         const mapEl = document.getElementById('receipt-map');
         if (!startLatLng) { mapEl.style.display = 'none'; return; }
         
@@ -2246,8 +2246,8 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
 
         const baseCoords = L.latLng(49.439841, 12.927355);
         
-        // Zobrazí základnu na účtence jen u jízd mimo město
-        if (ratePerKm !== 34) {
+        // Zobrazí základnu na účtence jen když je to explicitně povoleno
+        if (addBase) {
             L.marker(baseCoords, {icon: iconBase}).addTo(receiptMap); 
         }
 
@@ -2259,12 +2259,12 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
             let routePoints = [];
             
             // Konstrukce cesty se striktními body (createWaypoint vynutí otočení na místě)
-            if (ratePerKm !== 34) {
+            if (addBase) {
                 routePoints.push(createWaypoint(baseCoords));
             }
             routePoints.push(createWaypoint(startLatLng));
             routePoints.push(createWaypoint(endLatLng));
-            if (ratePerKm !== 34) {
+            if (addBase) {
                 routePoints.push(createWaypoint(baseCoords));
             }
 
@@ -2351,7 +2351,8 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
 
         document.getElementById('receipt-modal').style.display = 'flex';
         
-        drawReceiptMap(coordsData.pickup, coordsData.dropoff, taxiCurrentRate);
+        // Taxametr tiskne podle zaměřené GPS a NIKDY nepřidává základnu
+        drawReceiptMap(taxiStartLatLng, taxiEndLatLng, false);
     }
 
     let map = L.map('map', { rotate: true, touchZoom: true, zoomControl: false }).setView([49.4398, 12.9304], 13);
@@ -2915,7 +2916,11 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         let ratePerKm = 13;
         if (dist > 0) { ratePerKm = Math.round((price - 20) / dist); }
 
-        viewFullCustomerRoute(data.pickupLat, data.pickupLng, data.dropoffLat, data.dropoffLng, data.waypointsCoords, ratePerKm);
+        // Detekce, zda se má přidat základna (Albert). U taxametru z ulice NIKDY.
+        let isTaximeter = (data.customerName === "Zákazník z ulice (Taxametr)");
+        let addBase = !isTaximeter && (ratePerKm !== 34);
+
+        viewFullCustomerRoute(data.pickupLat, data.pickupLng, data.dropoffLat, data.dropoffLng, data.waypointsCoords, addBase);
     }
 
 // --- TISK Z HISTORIE ---
@@ -2940,11 +2945,14 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         
         // Širší záchyt e-mailu pro případ různých formátů v databázi zákazníků
         let custEmail = data.email || data.userEmail || data.customerEmail || data.clientEmail || "";
+        
+        let isTaximeter = (data.customerName === "Zákazník z ulice (Taxametr)");
+        let addBase = !isTaximeter && (ratePerKm !== 34);
 
-        printAdminReceipt(driverStr, carStr, spzStr, data.pickup, data.dropoff, price, dist, data.pickupLat, data.pickupLng, data.dropoffLat, data.dropoffLng, custEmail, ratePerKm);
+        printAdminReceipt(driverStr, carStr, spzStr, data.pickup, data.dropoff, price, dist, data.pickupLat, data.pickupLng, data.dropoffLat, data.dropoffLng, custEmail, ratePerKm, addBase);
     }
 
-    function printAdminReceipt(driverStr, carStr, spzStr, pickup, dropoff, price, dist, pLat, pLng, dLat, dLng, custEmail, ratePerKm) {
+    function printAdminReceipt(driverStr, carStr, spzStr, pickup, dropoff, price, dist, pLat, pLng, dLat, dLng, custEmail, ratePerKm, addBase) {
         document.getElementById('rec-driver').innerText = driverStr;
         document.getElementById('rec-car').innerText = `${carStr} ${spzStr}`; // Bez závorek
 
@@ -2969,10 +2977,10 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
 
         let pLatLng = (pLat && pLng) ? L.latLng(pLat, pLng) : null;
         let dLatLng = (dLat && dLng) ? L.latLng(dLat, dLng) : null;
-        drawReceiptMap(pLatLng, dLatLng, ratePerKm);
+        drawReceiptMap(pLatLng, dLatLng, addBase);
     }
 
-   function viewFullCustomerRoute(pLat, pLng, dLat, dLng, waypoints, ratePerKm) {
+       function viewFullCustomerRoute(pLat, pLng, dLat, dLng, waypoints, addBase) {
         if (!pLat || !pLng) return alert("Chybí GPS souřadnice místa nakládky pro vykreslení trasy.");
         
         showSection('section-app');
@@ -2988,7 +2996,7 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         let routePoints = [];
 
         // ZÁKLADNA: Přidáme ji pouze, pokud se nejedná o jízdu po městě
-        if (ratePerKm !== 34) {
+        if (addBase) {
             L.marker(baseCoords, {icon: iconBase}).addTo(tempMarkers).bindPopup("Sídlo firmy (Albert)");
             routePoints.push(createWaypoint(baseCoords));
         }
@@ -3011,7 +3019,7 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
             routePoints.push(createWaypoint(dropoffLatLng));
             
             // ZÁKLADNA ZPĚT: Pouze pokud se nejedná o město
-            if (ratePerKm !== 34) {
+            if (addBase) {
                 routePoints.push(createWaypoint(baseCoords));
             }
         }
