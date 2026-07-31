@@ -1999,8 +1999,7 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         });
     }
 
-   let taxiWatchId = null; let taxiWaitInterval = null; let taxiLastPosition = null; let taxiLastMoveTime = null;
-    let taxiStartLatLng = null; let taxiEndLatLng = null; let currentTaximeterOrderId = null;
+    let taxiWatchId = null; let taxiWaitInterval = null; let taxiLastPosition = null; let taxiLastMoveTime = null;
     let taxiBaseFare = 20; let taxiCurrentRate = 0; let taxiDistanceKm = 0; let taxiWaitSeconds = 0; let taxiWaitCost = 0;
 
     document.getElementById('taxi-target-input').addEventListener('input', function() {
@@ -2034,10 +2033,6 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
 
         const targetName = document.getElementById('taxi-target-input').value || "Nezadáno"; document.getElementById('taxi-display-target').innerText = targetName;
         taxiBaseFare = 20.00; taxiCurrentRate = ratePerKm; taxiDistanceKm = 0; taxiWaitSeconds = 0; taxiWaitCost = 0; taxiLastPosition = null; taxiLastMoveTime = Date.now();
-        
-        currentTaximeterOrderId = null; taxiStartLatLng = null; taxiEndLatLng = null;
-        navigator.geolocation.getCurrentPosition(pos => { taxiStartLatLng = L.latLng(pos.coords.latitude, pos.coords.longitude); }, () => {}, { enableHighAccuracy: true });
-
         document.getElementById('taxi-led-tariff').innerText = tariffName.toUpperCase(); document.getElementById('taxi-led-rate-info').innerText = ratePerKm; document.getElementById('taxi-led-dist').innerText = "0.00"; document.getElementById('taxi-led-wait-time').innerText = "00:00"; document.getElementById('taxi-led-wait-cost').innerText = "0.00"; updateTotalPriceDisplay();
         document.getElementById('taxi-setup').style.display = 'none'; 
         document.getElementById('taxi-running').style.display = 'flex';
@@ -2142,48 +2137,6 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         if (taxiWaitInterval) { clearInterval(taxiWaitInterval); taxiWaitInterval = null; } 
         document.getElementById('taxi-controls-running').style.display = 'none';
         document.getElementById('taxi-controls-paused').style.display = 'flex';
-
-        taxiEndLatLng = taxiLastPosition;
-
-        // Okamžitý zápis jízdy na volno (z ulice) do databáze (Historie jízd)
-        if (db) {
-            const dName = localStorage.getItem('taxi_green_driver_name') || "Neznámý řidič";
-            const dModel = localStorage.getItem('taxi_green_vehicle_model') || "-";
-            const dPlate = localStorage.getItem('taxi_green_vehicle_plate') || "-";
-            const total = taxiBaseFare + (taxiDistanceKm * taxiCurrentRate) + taxiWaitCost;
-
-            let tText = document.getElementById('taxi-display-target').innerText;
-            if (!tText || tText === "Nezadáno") tText = "Dle taxametru (Z ulice)";
-
-            let orderData = {
-                status: "Dokončeno",
-                customerName: "Zákazník z ulice (Taxametr)",
-                pickup: "Nástup z ulice",
-                dropoff: tText,
-                driverName: dName,
-                driverCar: dModel,
-                driverSpz: dPlate,
-                price: total.toFixed(2),
-                distance: taxiDistanceKm.toFixed(2),
-                pickupLat: taxiStartLatLng ? taxiStartLatLng.lat : null,
-                pickupLng: taxiStartLatLng ? taxiStartLatLng.lng : null,
-                dropoffLat: taxiEndLatLng ? taxiEndLatLng.lat : null,
-                dropoffLng: taxiEndLatLng ? taxiEndLatLng.lng : null,
-                date: firebase.firestore.FieldValue.serverTimestamp(),
-                time: new Date().toLocaleTimeString('cs-CZ')
-            };
-
-            // Pokud tuto jízdu ukládáme poprvé po kliku na Stop:
-            if (!currentTaximeterOrderId) {
-                db.collection("taxi_orders").add(orderData).then(docRef => {
-                    currentTaximeterOrderId = docRef.id;
-                }).catch(e => console.error("Chyba uložení taxametru: ", e));
-            } else {
-                // Pokud řidič klikl na Pokračovat a pak znovu na Stop, jen to aktualizujeme
-                db.collection("taxi_orders").doc(currentTaximeterOrderId).update(orderData)
-                  .catch(e => console.error("Chyba aktualizace taxametru: ", e));
-            }
-        }
     }
 
     function resumeFare() {
