@@ -865,20 +865,32 @@ body.admin-mode #app-container{
     const iconWaypoint = L.divIcon({ html: '<div style="font-size: 18px; text-shadow: 0 0 5px white;">🔵</div>', className: 'custom-map-icon', iconSize: [18, 18], iconAnchor: [9, 9] });
 
     // Zmenšené zelené autíčko, které vypadá jako taxi s jasně definovanou přídí (světlomety)
-    const greenCarIcon = L.divIcon({
-        html: `<div id="driver-car-icon" style="transition: transform 0.4s ease-out; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="32px" height="32px" style="filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.4));">
-                    <polygon points="30,12 20,2 40,2" fill="#ffeb3b" opacity="0.6"/>
-                    <polygon points="70,12 60,2 80,2" fill="#ffeb3b" opacity="0.6"/>
-                    <path d="M25,30 L25,85 A8,8 0 0,0 33,93 L67,93 A8,8 0 0,0 75,85 L75,30 L65,12 L35,12 Z" fill="#22c55e" stroke="#14532d" stroke-width="4"/>
-                    <polygon points="35,32 65,32 60,18 40,18" fill="#1e293b"/>
-                    <rect x="35" y="70" width="30" height="12" rx="2" fill="#1e293b"/>
-                    <rect x="36" y="44" width="28" height="10" rx="2" fill="#ffeb3b" stroke="#000" stroke-width="1"/>
-                    <text x="50" y="52" font-size="7" font-weight="900" fill="#000" text-anchor="middle" font-family="sans-serif">TAXI</text>
-                </svg>
-               </div>`,
-        className: 'driver-gps-marker', iconSize: [32, 32], iconAnchor: [16, 16]
-    });
+    // Funkce pro získání obarvené ikony vlastního vozu (bez zobrazení vlastního jména)
+    function getMyCarIcon() {
+        const vIndex = localStorage.getItem('taxi_green_vehicle_index') || "0";
+        // Využije funkci pro získání správné barvy
+        const color = getCarColorByIndex(vIndex);
+
+        return L.divIcon({
+            html: `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+                    <!-- ID driver-car-icon je zde, aby se při jízdě otáčelo SVG autíčko -->
+                    <div id="driver-car-icon" style="transition: transform 0.4s ease-out; display: flex; align-items: center; justify-content: center;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="32px" height="32px" style="filter: drop-shadow(0px 3px 3px rgba(0,0,0,0.4));">
+                            <polygon points="30,12 20,2 40,2" fill="#ffeb3b" opacity="0.6"/>
+                            <polygon points="70,12 60,2 80,2" fill="#ffeb3b" opacity="0.6"/>
+                            <path d="M25,30 L25,85 A8,8 0 0,0 33,93 L67,93 A8,8 0 0,0 75,85 L75,30 L65,12 L35,12 Z" fill="${color}" stroke="#1e293b" stroke-width="4"/>
+                            <polygon points="35,32 65,32 60,18 40,18" fill="#1e293b"/>
+                            <rect x="35" y="70" width="30" height="12" rx="2" fill="#1e293b"/>
+                            <rect x="36" y="44" width="28" height="10" rx="2" fill="#ffeb3b" stroke="#000" stroke-width="1"/>
+                            <text x="50" y="52" font-size="7" font-weight="900" fill="#000" text-anchor="middle" font-family="sans-serif">TAXI</text>
+                        </svg>
+                    </div>
+                   </div>`,
+            className: 'driver-gps-marker', 
+            iconSize: [32, 32], 
+            iconAnchor: [16, 16] // Dokonale vycentrované
+        });
+    }
 
     // --- POMOCNÉ PRVKY PRO PLYNULOU NAVIGACI A ODKLAD ZOOMU ---
     let userInteractionTimer = null;
