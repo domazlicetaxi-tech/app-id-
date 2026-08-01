@@ -2402,6 +2402,8 @@ taxiBaseFare = 20.00; taxiCurrentRate = ratePerKm; taxiDistanceKm = 0; taxiWaitS
                 driverSpz: dPlate,
                 price: total.toFixed(2),
                 distance: taxiDistanceKm.toFixed(2),
+                waitCost: taxiWaitCost,
+                waitSeconds: taxiWaitSeconds,
                 pickupLat: taxiStartLatLng ? taxiStartLatLng.lat : null,
                 pickupLng: taxiStartLatLng ? taxiStartLatLng.lng : null,
                 dropoffLat: taxiEndLatLng ? taxiEndLatLng.lat : null,
@@ -3257,12 +3259,16 @@ taxiBaseFare = 20.00; taxiCurrentRate = ratePerKm; taxiDistanceKm = 0; taxiWaitS
      let rawDist = String(data.distance || data.distKm || '0').replace(',', '.').replace(/[^0-9.]/g, '');
      let dist = parseFloat(rawDist) || 0;
 
-     if (dist === 0 && price > 20) { dist = ((price - 20) / 34).toFixed(1); }
+     // Načtení částky za čekání (pokud tam nějaká je)
+     let wCost = parseFloat(data.waitCost || '0');
 
-     // Vypočítáme sazbu zpětně
+     // Z celkové ceny musíme odečíst 20 Kč (nástup) a částku za čekání
+     if (dist === 0 && price > (20 + wCost)) { dist = ((price - 20 - wCost) / 34).toFixed(1); }
+
+     // Vypočítáme sazbu zpětně bez čekání
      let ratePerKm = 13;
      if (dist > 0) {
-         ratePerKm = Math.round((price - 20) / dist);
+         ratePerKm = Math.round((price - 20 - wCost) / dist);
      }
 
      let custEmail = data.email || data.userEmail || data.customerEmail || data.clientEmail || "";
@@ -3282,14 +3288,20 @@ taxiBaseFare = 20.00; taxiCurrentRate = ratePerKm; taxiDistanceKm = 0; taxiWaitS
         document.getElementById('rec-from').innerText = pickup || "Nezadáno (dle GPS)";
         document.getElementById('rec-to').innerText = dropoff || "Nezadáno";
 
-        let distFare = Math.max(0, price - 20);
+        // Načtení uloženého čekání z databáze (zabrání chybě, pokud data chybí)
+     let wCost = (orderData && orderData.waitCost) ? parseFloat(orderData.waitCost) : 0;
+     let wSeconds = (orderData && orderData.waitSeconds) ? parseInt(orderData.waitSeconds) : 0;
 
-        document.getElementById('rec-dist').innerText = parseFloat(dist).toFixed(2);
-        document.getElementById('rec-rate').innerText = ratePerKm;
-        document.getElementById('rec-dist-fare').innerText = distFare.toFixed(2);
-        
-        document.getElementById('rec-wait-time').innerText = "00:00"; 
-        document.getElementById('rec-wait').innerText = "0.00";
+     // Z ujeté ceny (distFare) se odečítá nástup 20 a hodnota čekání
+     let distFare = Math.max(0, price - 20 - wCost);
+
+     document.getElementById('rec-dist').innerText = parseFloat(dist).toFixed(2);
+     document.getElementById('rec-rate').innerText = ratePerKm;
+     document.getElementById('rec-dist-fare').innerText = distFare.toFixed(2);
+
+     // Propíše čas ve formátu MM:SS (kód využije vaši stávající funkci formatTime)
+     document.getElementById('rec-wait-time').innerText = formatTime(wSeconds); 
+     document.getElementById('rec-wait').innerText = wCost.toFixed(2);
         document.getElementById('rec-total').innerText = parseFloat(price).toFixed(2);
 
         // Příprava dat pro e-mailového klienta
