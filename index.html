@@ -287,57 +287,81 @@ body.admin-mode #app-container{
  <div id="taxameter-top-panel"></div>
 
 <div id="receipt-modal" class="modal-overlay">
-    <div class="modal-content" style="width: 340px; font-family: 'Courier New', Courier, monospace;">
-        <h3 style="text-align: center; margin-top: 0; margin-bottom: 5px;">ÚČTENKA TAXI GREEN</h3>
+    <div class="modal-content" style="width: 95%; max-width: 900px; font-family: 'Courier New', Courier, monospace;">
         
-        <!-- HLAVIČKA DOPRAVCE -->
-        <div style="text-align: center; font-size: 13px; margin-bottom: 10px; border-bottom: 1px solid #000; padding-bottom: 10px;">
-            <strong>Taxi služba Jaroslav Musil</strong><br>
-            IČO: 76126447<br>
-            Msgre.B.Staša 54, 344 01 Domažlice<br>
-            <strong>Nejsem plátcem DPH</strong>
+        <!-- HORNÍ ČÁST (Rozložená vedle sebe na počítači) -->
+        <div style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between;">
+            
+            <!-- LEVÁ STRANA: Samotná účtenka -->
+            <div style="flex: 1; min-width: 300px; max-width: 400px;">
+                <h3 style="text-align: center; margin-top: 0; margin-bottom: 5px;">ÚČTENKA TAXI GREEN</h3>
+                
+                <div style="text-align: center; font-size: 13px; margin-bottom: 10px; border-bottom: 1px solid #000; padding-bottom: 10px;">
+                    <strong>Taxi služba Jaroslav Musil</strong><br>
+                    IČO: 76126447<br>
+                    Msgre.B.Staša 54, 344 01 Domažlice<br>
+                    <strong>Nejsem plátcem DPH</strong>
+                </div>
+                
+                <p style="font-size: 13px; margin: 5px 0;"><strong>Řidič:</strong> <span id="rec-driver" style="font-weight: bold;"></span></p>
+                <p style="font-size: 13px; margin: 5px 0;"><strong>Vozidlo taxi:</strong> <span id="rec-car" style="font-weight: bold;"></span></p>
+                
+                <hr style="border-top: 1px dashed #000; margin: 10px 0;">
+                
+                <p style="font-size: 13px; margin: 5px 0;"><strong>Z:</strong> <br><span id="rec-from"></span></p>
+                <p style="font-size: 13px; margin: 5px 0;"><strong>Do:</strong> <br><span id="rec-to"></span></p>
+                <hr style="border-top: 1px dashed #000; margin: 10px 0;">
+                
+                <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 3px 0;">Nástupní sazba:</td>
+                        <td style="text-align: right; padding: 3px 0;">20.00 Kč</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 3px 0;">Ujeto (<span id="rec-dist">0.00</span> km á <span id="rec-rate">0</span> Kč/km):</td>
+                        <td style="text-align: right; padding: 3px 0;"><span id="rec-dist-fare">0.00</span> Kč</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 3px 0;">Čekání (<span id="rec-wait-time">00:00</span> á 6 Kč/min):</td>
+                        <td style="text-align: right; padding: 3px 0;"><span id="rec-wait">0.00</span> Kč</td>
+                    </tr>
+                </table>
+                
+                <h2 style="text-align: center; margin-top: 15px; border-top: 2px solid #000; padding-top: 10px; font-size: 18px;">CELKEM: <span id="rec-total"></span> Kč</h2>
+            </div>
+
+            <!-- PRAVÁ STRANA: Mapa -->
+            <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column;">
+                <div id="receipt-map" style="width: 100%; height: 350px; border: 1px solid #000; display: none; flex-grow: 1;"></div>
+            </div>
         </div>
-        
-        <!-- ODDĚLENÝ ŘIDIČ A VOZIDLO -->
-        <p style="font-size: 13px; margin: 5px 0;"><strong>Řidič:</strong> <span id="rec-driver" style="font-weight: bold;"></span></p>
-        <p style="font-size: 13px; margin: 5px 0;"><strong>Vozidlo taxi:</strong> <span id="rec-car" style="font-weight: bold;"></span></p>
-        
-        <hr style="border-top: 1px dashed #000; margin: 10px 0;">
-        
-        <!-- ADRESY -->
-        <p style="font-size: 13px; margin: 5px 0;"><strong>Nástup:</strong> <br><span id="rec-from"></span></p>
-        <p style="font-size: 13px; margin: 5px 0;"><strong>Výstup:</strong> <br><span id="rec-to"></span></p>
-        <hr style="border-top: 1px dashed #000; margin: 10px 0;">
-        
-        <!-- ROZPIS CENY -->
-        <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
-            <tr>
-                <td style="padding: 3px 0;">Nástupní sazba:</td>
-                <td style="text-align: right; padding: 3px 0;">20.00 Kč</td>
-            </tr>
-            <tr>
-                <td style="padding: 3px 0;">Ujeto (<span id="rec-dist">0.00</span> km á <span id="rec-rate">0</span> Kč/km):</td>
-                <td style="text-align: right; padding: 3px 0;"><span id="rec-dist-fare">0.00</span> Kč</td>
-            </tr>
-            <tr>
-                <td style="padding: 3px 0;">Čekání (<span id="rec-wait-time">00:00</span> á 6 Kč/min):</td>
-                <td style="text-align: right; padding: 3px 0;"><span id="rec-wait">0.00</span> Kč</td>
-            </tr>
-        </table>
-        
-        <h2 style="text-align: center; margin-top: 15px; border-top: 2px solid #000; padding-top: 10px; font-size: 18px;">CELKEM: <span id="rec-total"></span> Kč</h2>
 
-        <!-- MAPA PRO TISK -->
-        <div id="receipt-map" style="width: 100%; height: 160px; margin-top: 15px; border: 1px solid #000; display: none;"></div>
+        <!-- SPODNÍ ČÁST: Detaily elektronické objednávky (Skryto u jízd z ulice) -->
+        <div id="receipt-order-details" style="display: none; margin-top: 25px; border-top: 2px solid #000; padding-top: 15px;">
+            <h3 style="margin-top: 0; font-size: 15px;">DOKLAD O ELEKTRONICKÉ OBJEDNÁVCE (SMLUVNÍ PŘEPRAVA)</h3>
+            <div style="display: flex; flex-wrap: wrap; gap: 20px; font-size: 13px;">
+                <div style="flex: 1; min-width: 250px;">
+                    <p style="margin: 5px 0;"><strong>Zákazník:</strong> <span id="rec-order-customer"></span></p>
+                    <p style="margin: 5px 0;"><strong>Přijato systémem:</strong> <span id="rec-order-datetime"></span></p>
+                    <p style="margin: 5px 0;"><strong>Odsouhlasená cena předem:</strong> <span id="rec-order-calc-price"></span> Kč</p>
+                </div>
+                <div style="flex: 1; min-width: 250px;">
+                    <p style="margin: 5px 0;"><strong>Objednaná trasa Z:</strong> <span id="rec-order-from"></span></p>
+                    <p style="margin: 5px 0;"><strong>Objednaná trasa Do:</strong> <span id="rec-order-to"></span></p>
+                    <p style="margin: 5px 0;"><strong>Forma objednávky:</strong> Mobilní aplikace zákazníka</p>
+                </div>
+            </div>
+        </div>
 
-        <!-- TLAČÍTKA OBALENÁ DO DIVU PRO JEJICH SKRYTÍ PŘI TISKU -->
+        <!-- TLAČÍTKA -->
         <div id="receipt-action-buttons">
-            <div style="display: flex; gap: 8px; margin-top: 15px;">
+            <div style="display: flex; gap: 8px; margin-top: 25px;">
                 <button class="modal-btn" onclick="executePrint()" style="flex: 1; font-size: 12px; margin-top: 0; padding: 12px 5px;">🖨️ TISKNOUT</button>
                 <button class="modal-btn" onclick="sendReceiptEmail()" style="flex: 1; background: #2563eb; font-size: 12px; margin-top: 0; padding: 12px 5px;">📱 ELEKTRONICKY</button>
             </div>
             <button onclick="closeReceiptModal()" style="width:100%; padding: 12px; margin-top: 10px; cursor:pointer; background:#e2e8f0; border:none; border-radius:6px; font-weight:bold;">ZAVŘÍT</button>
         </div>
+        
     </div>
 </div>
 
@@ -2595,7 +2619,9 @@ taxiBaseFare = 20.00; taxiCurrentRate = ratePerKm; taxiDistanceKm = 0; taxiWaitS
         currentReceiptEmailData.email = custEmail;
         currentReceiptEmailData.textBody = `Dobrý den,\n\nzasíláme Vám účtenku za Vaši jízdu s Taxi Green.\n\nDopravce: Taxi služba Jaroslav Musil (IČO: 76126447) - Nejsem plátcem DPH\nŘidič: ${dName}\nVozidlo taxi: ${dModel} ${dPlate}\n\nNástup: ${fText}\nVýstup: ${tText}\n\nUjeto: ${taxiDistanceKm.toFixed(2)} km (á ${taxiCurrentRate} Kč/km)\nČekání: ${formatTime(taxiWaitSeconds)} (á 6 Kč/min)\nCelkem k úhradě: ${total} Kč\n\nDěkujeme, že cestujete s námi!`;
 
-        document.getElementById('receipt-modal').style.display = 'flex';
+      // U běžného taxametru z ulice sekci s elektronickou objednávkou schováme
+     document.getElementById('receipt-order-details').style.display = 'none';
+       document.getElementById('receipt-modal').style.display = 'flex';
         
         // Taxametr tiskne podle zaměřené GPS a NIKDY nepřidává základnu
         drawReceiptMap(taxiStartLatLng, taxiEndLatLng, false, taxiRouteTrail);
@@ -3241,10 +3267,10 @@ taxiBaseFare = 20.00; taxiCurrentRate = ratePerKm; taxiDistanceKm = 0; taxiWaitS
         let isTaximeter = (data.customerName === "Zákazník z ulice (Taxametr)");
         let addBase = !isTaximeter && (ratePerKm !== 34);
 
-        printAdminReceipt(driverStr, carStr, spzStr, data.pickup, data.dropoff, price, dist, data.pickupLat, data.pickupLng, data.dropoffLat, data.dropoffLng, custEmail, ratePerKm, addBase);
+printAdminReceipt(driverStr, carStr, spzStr, data.pickup, data.dropoff, price, dist, data.pickupLat, data.pickupLng, data.dropoffLat, data.dropoffLng, custEmail, ratePerKm, addBase, data);
     }
 
-    function printAdminReceipt(driverStr, carStr, spzStr, pickup, dropoff, price, dist, pLat, pLng, dLat, dLng, custEmail, ratePerKm, addBase) {
+  function printAdminReceipt(driverStr, carStr, spzStr, pickup, dropoff, price, dist, pLat, pLng, dLat, dLng, custEmail, ratePerKm, addBase, orderData = null) {
         document.getElementById('rec-driver').innerText = driverStr;
         document.getElementById('rec-car').innerText = `${carStr} ${spzStr}`; // Bez závorek
 
@@ -3265,7 +3291,26 @@ taxiBaseFare = 20.00; taxiCurrentRate = ratePerKm; taxiDistanceKm = 0; taxiWaitS
         currentReceiptEmailData.email = custEmail;
         currentReceiptEmailData.textBody = `Dobrý den,\n\nzasíláme Vám kopii účtenky za Vaši jízdu s Taxi Green.\n\nDopravce: Taxi služba Jaroslav Musil (IČO: 76126447) - Nejsem plátcem DPH\nŘidič: ${driverStr}\nVozidlo taxi: ${carStr} ${spzStr}\n\nNástup: ${pickup || "Nezadáno"}\nVýstup: ${dropoff || "Nezadáno"}\n\nUjeto: ${parseFloat(dist).toFixed(2)} km (á ${ratePerKm} Kč/km)\nCelkem k úhradě: ${parseFloat(price).toFixed(2)} Kč\n\nDěkujeme, že cestujete s námi!`;
 
-        document.getElementById('receipt-modal').style.display = 'flex';
+      // Zobrazení a naplnění informací o objednávce (Pokud se nejedná o jízdu z ulice)
+     const detailsBox = document.getElementById('receipt-order-details');
+     if (orderData && orderData.customerName !== "Zákazník z ulice (Taxametr)") {
+         detailsBox.style.display = 'block';
+         document.getElementById('rec-order-customer').innerText = orderData.customerName || orderData.name || 'Neznámý';
+
+         let orderDate = null;
+         if (orderData.date && orderData.date.seconds) { orderDate = new Date(orderData.date.seconds * 1000); }
+         else if (orderData.date) { orderDate = new Date(orderData.date); }
+
+         let dateStr = (orderDate && !isNaN(orderDate)) ? (orderDate.toLocaleDateString('cs-CZ') + ' ' + orderDate.toLocaleTimeString('cs-CZ')) : (orderData.time || "Neznámý");
+
+         document.getElementById('rec-order-datetime').innerText = dateStr;
+         document.getElementById('rec-order-calc-price').innerText = orderData.calculatedPrice || price;
+         document.getElementById('rec-order-from').innerText = orderData.pickup || "Nezadáno";
+         document.getElementById('rec-order-to').innerText = orderData.dropoff || "Nezadáno";
+     } else {
+         detailsBox.style.display = 'none';
+     }  
+      document.getElementById('receipt-modal').style.display = 'flex';
 
         let pLatLng = (pLat && pLng) ? L.latLng(pLat, pLng) : null;
         let dLatLng = (dLat && dLng) ? L.latLng(dLat, dLng) : null;
