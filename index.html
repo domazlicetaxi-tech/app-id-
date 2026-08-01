@@ -2404,6 +2404,7 @@ taxiBaseFare = 20.00; taxiCurrentRate = ratePerKm; taxiDistanceKm = 0; taxiWaitS
                 distance: taxiDistanceKm.toFixed(2),
                 waitCost: taxiWaitCost,
                 waitSeconds: taxiWaitSeconds,
+                routeTrail: taxiRouteTrail.map(pt => ({lat: pt.lat, lng: pt.lng})),
                 pickupLat: taxiStartLatLng ? taxiStartLatLng.lat : null,
                 pickupLng: taxiStartLatLng ? taxiStartLatLng.lng : null,
                 dropoffLat: taxiEndLatLng ? taxiEndLatLng.lat : null,
@@ -3327,11 +3328,18 @@ taxiBaseFare = 20.00; taxiCurrentRate = ratePerKm; taxiDistanceKm = 0; taxiWaitS
      } else {
          detailsBox.style.display = 'none';
      }  
-      document.getElementById('receipt-modal').style.display = 'flex';
+    document.getElementById('receipt-modal').style.display = 'flex';
 
-        let pLatLng = (pLat && pLng) ? L.latLng(pLat, pLng) : null;
-        let dLatLng = (dLat && dLng) ? L.latLng(dLat, dLng) : null;
-        drawReceiptMap(pLatLng, dLatLng, addBase);
+     let pLatLng = (pLat && pLng) ? L.latLng(pLat, pLng) : null;
+     let dLatLng = (dLat && dLng) ? L.latLng(dLat, dLng) : null;
+
+     // Přečtení a obnovení červené stopy taxametru z databáze (pokud existuje)
+     let tCoords = null;
+     if (orderData && orderData.routeTrail) {
+         tCoords = orderData.routeTrail.map(pt => L.latLng(pt.lat, pt.lng));
+     }
+
+     drawReceiptMap(pLatLng, dLatLng, addBase, tCoords);
     }
 
        function viewFullCustomerRoute(pLat, pLng, dLat, dLng, waypoints, addBase) {
