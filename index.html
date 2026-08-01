@@ -1663,8 +1663,21 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         db.collection("taxi_orders").onSnapshot(snapshot => {
             pendingOrders = []; snapshot.forEach(doc => { pendingOrders.push({ id: doc.id, ...doc.data() }); });
             pendingOrders.sort((a, b) => {
-                let timeA = a.timestamp ? (a.timestamp.seconds || a.timestamp) : (a.time || ''); let timeB = b.timestamp ? (b.timestamp.seconds || b.timestamp) : (b.time || '');
-                return timeB > timeA ? 1 : (timeB < timeA ? -1 : 0);
+                // Bezpečné sjednocení času do porovnatelného formátu
+                const getSortTime = (obj) => {
+                    if (obj.timestamp && obj.timestamp.toMillis) return obj.timestamp.toMillis();
+                    if (obj.timestamp && obj.timestamp.seconds) return obj.timestamp.seconds * 1000;
+                    if (obj.date && obj.date.toMillis) return obj.date.toMillis();
+                    if (obj.date && obj.date.seconds) return obj.date.seconds * 1000;
+                    // Pokud je čas jen jako text (např. "14:30"), fallback na textové porovnání
+                    return obj.timestamp || obj.time || 0;
+                };
+
+                let tA = getSortTime(a);
+                let tB = getSortTime(b);
+
+                // Seřazení: tB > tA zajistí, že nejnovější (s nejvyšší hodnotou) budou na 1. místě (nahoře)
+                return tB > tA ? 1 : (tB < tA ? -1 : 0);
             });
             const newOrders = pendingOrders.filter(o => o.status === "Nová");
             if (newOrders.length > lastNewOrdersCount) { startAlarm(); document.getElementById('btn-top-orders').classList.add('alert'); }
