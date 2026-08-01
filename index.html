@@ -754,8 +754,8 @@ body.admin-mode #app-container{
     }
 
     // Při prvním jakémkoliv dotyku kamkoliv na stránku skočíme do Fullscreenu
-    document.body.addEventListener('click', enforceFullscreen, { once: true });
-    document.body.addEventListener('touchstart', enforceFullscreen, { once: true });
+    document.body.addEventListener('click', enforceFullscreen);
+    document.body.addEventListener('touchstart', enforceFullscreen, { passive: true });
 
     // --- FUNKCE PRO ZMĚNU ROZLOŽENÍ TAXAMETRU ---
     function spustTaxameterRezim() {
