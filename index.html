@@ -2509,11 +2509,14 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
      actionBtns.style.display = 'none';
 
      // Nastavení vzhledu PDF (A5 formát vypadá pro účtenku nejlépe)
+     // Pojistka proti prázdnému PDF (odrolujeme skrytě na začátek)
+     window.scrollTo(0, 0);
+
      const opt = {
          margin:       10,
          filename:     'Uctenka_Taxi_Green.pdf',
          image:        { type: 'jpeg', quality: 0.98 },
-         html2canvas:  { scale: 2, useCORS: true },
+         html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
          jsPDF:        { unit: 'mm', format: 'a5', orientation: 'portrait' }
      };
 
