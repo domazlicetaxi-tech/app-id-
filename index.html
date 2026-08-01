@@ -3250,24 +3250,29 @@ taxiBaseFare = 20.00; taxiCurrentRate = ratePerKm; taxiDistanceKm = 0; taxiWaitS
         let carStr = data.driverCar || '-';
         let spzStr = data.driverSpz || '-';
         
-        let price = parseFloat(data.price || data.calculatedPrice || data.total || '0');
-        let dist = parseFloat(data.distance || data.distKm || 0);
-        
-        if (dist === 0 && price > 20) { dist = ((price - 20) / 34).toFixed(1); }
-        
-        // Vypočítáme sazbu zpětně (např. jízda z mapy na okruh bude automaticky 13, město 34 atd.)
-        let ratePerKm = 13;
-        if (dist > 0) {
-            ratePerKm = Math.round((price - 20) / dist);
-        }
-        
-        // Širší záchyt e-mailu pro případ různých formátů v databázi zákazníků
-        let custEmail = data.email || data.userEmail || data.customerEmail || data.clientEmail || "";
-        
-        let isTaximeter = (data.customerName === "Zákazník z ulice (Taxametr)");
-        let addBase = !isTaximeter && (ratePerKm !== 34);
+        // OPRAVA 1: Vyčištění textu (odstranění mezer a "Kč") před převodem na číslo
+     let rawPrice = String(data.price || data.calculatedPrice || data.total || '0').replace(',', '.').replace(/[^0-9.]/g, '');
+     let price = parseFloat(rawPrice) || 0;
 
-printAdminReceipt(driverStr, carStr, spzStr, data.pickup, data.dropoff, price, dist, data.pickupLat, data.pickupLng, data.dropoffLat, data.dropoffLng, custEmail, ratePerKm, addBase, data);
+     let rawDist = String(data.distance || data.distKm || '0').replace(',', '.').replace(/[^0-9.]/g, '');
+     let dist = parseFloat(rawDist) || 0;
+
+     if (dist === 0 && price > 20) { dist = ((price - 20) / 34).toFixed(1); }
+
+     // Vypočítáme sazbu zpětně
+     let ratePerKm = 13;
+     if (dist > 0) {
+         ratePerKm = Math.round((price - 20) / dist);
+     }
+
+     let custEmail = data.email || data.userEmail || data.customerEmail || data.clientEmail || "";
+
+     // OPRAVA 2: Pokud je to elektronická objednávka ze systému, NIKDY nepřidáváme základnu. 
+     // Kreslíme jen čistou dohodnutou trasu (zákazník -> cíl).
+     let isAppOrder = !!data.calculatedPrice || (data.customerName !== "Zákazník z ulice (Taxametr)");
+     let addBase = !isAppOrder && (ratePerKm !== 34);
+
+     printAdminReceipt(driverStr, carStr, spzStr, data.pickup, data.dropoff, price, dist, data.pickupLat, data.pickupLng, data.dropoffLat, data.dropoffLng, custEmail, ratePerKm, addBase, data);    
     }
 
   function printAdminReceipt(driverStr, carStr, spzStr, pickup, dropoff, price, dist, pLat, pLng, dLat, dLng, custEmail, ratePerKm, addBase, orderData = null) {
