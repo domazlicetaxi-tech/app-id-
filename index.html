@@ -1216,12 +1216,21 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
             let currentPos = L.latLng(pos.coords.latitude, pos.coords.longitude);
             
             if (realtimeDriverMarker) {
-                realtimeDriverMarker.setLatLng(currentPos);
-            } else {
-                realtimeDriverMarker = L.marker(currentPos, { icon: getMyCarIcon(), zIndexOffset: 1000 }).addTo(map);
-            }
+            realtimeDriverMarker.setLatLng(currentPos);
+        } else {
+            realtimeDriverMarker = L.marker(currentPos, { icon: getMyCarIcon(), zIndexOffset: 1000 }).addTo(map);
+        }
 
-            const now = Date.now();
+        // --- NOVÝ KÓD PRO CENTROVÁNÍ MAPY, KDYŽ JSTE SÁM ---
+        if (!isUserInteracting && routingControls.length === 0 && !document.body.classList.contains('taxameter-active')) {
+            const hasOtherDrivers = Object.keys(otherDriversMarkers).length > 0;
+            if (!hasOtherDrivers) {
+                map.panTo(currentPos, { animate: true, duration: 0.5 });
+            }
+        }
+        // --- KONEC PŘIDANÉHO KÓDU ---
+
+        const now = Date.now();
             if (db && !isHidden && (now - lastDbUpdateTime > 10000)) {
                 const vIndex = localStorage.getItem('taxi_green_vehicle_index') || "0";
                 db.collection("active_drivers").doc(myName).set({
