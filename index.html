@@ -13,6 +13,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <style>
         * {
@@ -333,7 +334,7 @@ body.admin-mode #app-container{
         <div id="receipt-action-buttons">
             <div style="display: flex; gap: 8px; margin-top: 15px;">
                 <button class="modal-btn" onclick="executePrint()" style="flex: 1; font-size: 12px; margin-top: 0; padding: 12px 5px;">🖨️ TISKNOUT</button>
-                <button class="modal-btn" onclick="sendReceiptEmail()" style="flex: 1; background: #2563eb; font-size: 12px; margin-top: 0; padding: 12px 5px;">✉️ E-MAIL</button>
+                <button class="modal-btn" onclick="sendReceiptEmail()" style="flex: 1; background: #2563eb; font-size: 12px; margin-top: 0; padding: 12px 5px;">📱 ELEKTRONICKY</button>
             </div>
             <button onclick="closeReceiptModal()" style="width:100%; padding: 12px; margin-top: 10px; cursor:pointer; background:#e2e8f0; border:none; border-radius:6px; font-weight:bold;">ZAVŘÍT</button>
         </div>
@@ -2499,28 +2500,48 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         window.print();
     }
 
-   // --- FUNKCE PRO ODESLÁNÍ E-MAILU ---
-    function sendReceiptEmail() {
-        let emailTo = currentReceiptEmailData.email;
-        
-        // Pokud nemáme e-mail z databáze, nabídneme řidiči, ať jej zadá ručně
-        if (!emailTo || emailTo.trim() === "") {
-            emailTo = prompt("E-mail zákazníka nebyl u jízdy nalezen.\nZadejte e-mail ručně (nebo nechte prázdné pro vyplnění v aplikaci):", "");
-        }
-        
-        // Pokud uživatel zmáčkl Storno (storno vrátí null)
-        if (emailTo === null) return; 
-        
-        const targetEmail = emailTo.trim();
-        const subject = encodeURIComponent("Účtenka za jízdu - Taxi Green");
-        const body = encodeURIComponent(currentReceiptEmailData.textBody);
-        
-        // Sestavení mailto odkazu
-        const mailtoUrl = `mailto:${targetEmail}?subject=${subject}&body=${body}`;
-        
-        // Přímé nastavení pro mobilní telefony a PWA
-        window.location.href = mailtoUrl;
-    }
+   // --- FUNKCE PRO ODESLÁNÍ PDF ELEKTRONICKY (WhatsApp, E-mail, atd.) ---
+ async function sendReceiptEmail() {
+     const actionBtns = document.getElementById('receipt-action-buttons');
+     const modalContent = document.querySelector('.modal-content');
+
+     // 1. Dočasně skryjeme ovládací tlačítka, aby v PDF nebyla vidět
+     actionBtns.style.display = 'none';
+
+     // Nastavení vzhledu PDF (A5 formát vypadá pro účtenku nejlépe)
+     const opt = {
+         margin:       10,
+         filename:     'Uctenka_Taxi_Green.pdf',
+         image:        { type: 'jpeg', quality: 0.98 },
+         html2canvas:  { scale: 2, useCORS: true },
+         jsPDF:        { unit: 'mm', format: 'a5', orientation: 'portrait' }
+     };
+
+     try {
+         // 2. Vygenerujeme PDF do paměti telefonu (jako tzv. Blob)
+         const pdfBlob = await html2pdf().set(opt).from(modalContent).output('blob');
+         const file = new File([pdfBlob], 'Uctenka_Taxi_Green.pdf', { type: 'application/pdf' });
+
+         // 3. Otevřeme systémové sdílení telefonu (WhatsApp, Gmail, zprávy...)
+         if (navigator.canShare && navigator.canShare({ files: [file] })) {
+             await navigator.share({
+                 title: 'Účtenka Taxi Green',
+                 text: 'Dobrý den, v příloze zasíláme účtenku za Vaši jízdu s Taxi Green.',
+                 files: [file]
+             });
+         } else {
+             // Alternativa, pokud starší telefon přímé sdílení souborů nepodporuje
+             html2pdf().set(opt).from(modalContent).save();
+             alert("Účtenka byla stažena do telefonu jako PDF. Můžete ji nyní odeslat.");
+         }
+     } catch (error) {
+         console.error("Chyba při generování a sdílení PDF:", error);
+         alert("Nepodařilo se vygenerovat PDF dokument.");
+     } finally {
+         // 4. Vrátíme tlačítka zpět na obrazovku pro řidiče
+         actionBtns.style.display = 'block';
+     }
+ }
 
     // --- TISK Z TAXAMETRU ---
    function printReceipt() {
