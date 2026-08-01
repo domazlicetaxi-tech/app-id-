@@ -2542,7 +2542,7 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
     let routingControls = [];
     let coordsData = { pickup: null, dropoff: null, waypoints: [] };
     let rateSetting = 'mimo';
-    let baseRate = 20; let ratePerKm = 26;
+    let baseRate = 20; let ratePerKm = 13;
     let realtimeDriverMarker = null;
 
     map.on('mousedown touchstart', () => { isUserInteracting = true; clearTimeout(userInteractionTimer); });
