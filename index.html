@@ -2137,12 +2137,9 @@ diff = ((diff + 540) % 360) - 180;
 
 // Omezíme rotaci autíčka na maximum +/- 25 stupňů, aby nikdy nejelo vyloženě bokem
 let iconRotation = Math.max(-25, Math.min(25, diff));
-
-const carIconEl = document.getElementById('driver-car-icon');
-if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
-                    
-                    const carIconEl = document.getElementById('driver-car-icon');
-                    if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
+                  
+               const carIconEl = document.getElementById('driver-car-icon');
+               if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
                 } else {
                     const carIconEl = document.getElementById('driver-car-icon');
                     if (carIconEl) { carIconEl.style.transform = `rotate(0deg)`; }
