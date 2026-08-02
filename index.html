@@ -931,7 +931,7 @@ body.admin-mode #app-container{
     // Výpočet stabilizovaného a plynulého směru jízdy pomocí klouzavého průměru (Sygic styl)
     function getSmoothedBearing(newBearing) {
         bearingHistory.push(newBearing);
-        if (bearingHistory.length > 15) bearingHistory.shift(); 
+        if (bearingHistory.length > 5) bearingHistory.shift(); 
         let sinSum = 0, cosSum = 0;
         for (let b of bearingHistory) {
             let rad = b * Math.PI / 180;
@@ -2129,9 +2129,17 @@ if (!isUserInteracting && !isMapPicking && routingControls.length === 0 && !docu
                     let rawBearing = calculateBearing(taxiLastPosition.lat, taxiLastPosition.lng, currentPos.lat, currentPos.lng);
                     lastKnownBearing = getSmoothedBearing(rawBearing);
                     
-                    let currentMapBearing = map.getBearing() || 0;
-                    let iconRotation = rawBearing - currentMapBearing;
-                    iconRotation = ((iconRotation + 540) % 360) - 180;
+                    // NOVÝ KÓD:
+let currentMapBearing = map.getBearing() || 0;
+// Rozdíl mezi mapou a reálným směrem
+let diff = rawBearing - currentMapBearing;
+diff = ((diff + 540) % 360) - 180;
+
+// Omezíme rotaci autíčka na maximum +/- 25 stupňů, aby nikdy nejelo vyloženě bokem
+let iconRotation = Math.max(-25, Math.min(25, diff));
+
+const carIconEl = document.getElementById('driver-car-icon');
+if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
                     
                     const carIconEl = document.getElementById('driver-car-icon');
                     if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
@@ -2325,11 +2333,13 @@ taxiBaseFare = 20.00; taxiCurrentRate = ratePerKm; taxiDistanceKm = 0; taxiWaitS
                 lastKnownBearing = getSmoothedBearing(rawBearing);
                 
                 let currentMapBearing = map.getBearing() || 0;
-                let iconRotation = rawBearing - currentMapBearing;
-                iconRotation = ((iconRotation + 540) % 360) - 180;
+let diff = rawBearing - currentMapBearing;
+diff = ((diff + 540) % 360) - 180;
 
-                const carIconEl = document.getElementById('driver-car-icon');
-                if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
+let iconRotation = Math.max(-25, Math.min(25, diff));
+
+const carIconEl = document.getElementById('driver-car-icon');
+if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
             } else {
                 const carIconEl = document.getElementById('driver-car-icon');
                 if (carIconEl) { carIconEl.style.transform = `rotate(0deg)`; }
@@ -2869,11 +2879,13 @@ await new Promise(resolve => setTimeout(resolve, 400)); // 400ms pauza na překr
                     }
 
                     let currentMapBearing = map.getBearing() || 0;
-                    let iconRotation = rawBearing - currentMapBearing;
-                    iconRotation = ((iconRotation + 540) % 360) - 180;
-                    
-                    const carIconEl = document.getElementById('driver-car-icon');
-                    if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
+let diff = rawBearing - currentMapBearing;
+diff = ((diff + 540) % 360) - 180;
+
+let iconRotation = Math.max(-25, Math.min(25, diff));
+
+const carIconEl = document.getElementById('driver-car-icon');
+if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
                 } else {
                     const carIconEl = document.getElementById('driver-car-icon');
                     if (carIconEl) { carIconEl.style.transform = `rotate(0deg)`; }
