@@ -280,7 +280,33 @@ body.admin-mode #app-container{
                 print-color-adjust: exact;
             }
         }
-    </style>
+   /* --- RYCHLOMĚR (SPEEDOMETER) --- */
+#speedometer {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 4px solid #22c55e;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    margin-top: 20px !important; /* Kousíček níž od horního okraje */
+    margin-left: 15px !important; /* Při levém okraji */
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+    z-index: 1000;
+}
+
+#speedometer.speed-flash {
+    animation: flash-red 0.4s infinite alternate;
+}
+
+@keyframes flash-red {
+    0% { border-color: #ef4444; background: rgba(255, 255, 255, 0.95); }
+    100% { border-color: #ef4444; background: #fca5a5; }
+}
+            </style>
 </head>
 <body>
 
@@ -1247,6 +1273,7 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         const isHidden = hiddenAccounts.includes(myName.toLowerCase().trim());
 
         globalDriverWatchId = navigator.geolocation.watchPosition((pos) => {
+            updateSpeedometer(pos);
             let currentPos = L.latLng(pos.coords.latitude, pos.coords.longitude);
             
             if (realtimeDriverMarker) {
@@ -2647,6 +2674,22 @@ await new Promise(resolve => setTimeout(resolve, 400)); // 400ms pauza na překr
     let map = L.map('map', { rotate: true, touchZoom: true, zoomControl: false }).setView([49.4398, 12.9304], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
+// --- ZDE ZAČÍNÁ NOVÝ KÓD RYCHLOMĚRU ---
+    const SpeedControl = L.Control.extend({
+        options: { position: 'topleft' },
+        onAdd: function (map) {
+            const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+            container.id = 'speedometer';
+            container.innerHTML = `
+                <div id="speed-val" style="color: #22c55e; font-size: 20px; font-weight: 900; line-height: 1.1;">0</div>
+                <div id="speed-unit" style="font-size: 10px; font-weight: bold; color: #64748b;">km/h</div>
+            `;
+            L.DomEvent.disableClickPropagation(container); // Zabrání prokliku do mapy
+            return container;
+        }
+    });
+    map.addControl(new SpeedControl());
+    // --- ZDE KONČÍ NOVÝ KÓD RYCHLOMĚRU ---
     
     let tempMarkers = L.layerGroup().addTo(map);
     let routingControls = [];
