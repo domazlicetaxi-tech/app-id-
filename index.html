@@ -1254,12 +1254,12 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         }
 
         // --- NOVÝ KÓD PRO CENTROVÁNÍ MAPY, KDYŽ JSTE SÁM ---
-        if (!isUserInteracting && routingControls.length === 0 && !document.body.classList.contains('taxameter-active')) {
-            const hasOtherDrivers = Object.keys(otherDriversMarkers).length > 0;
-            if (!hasOtherDrivers) {
-                map.panTo(currentPos, { animate: true, duration: 0.5 });
-            }
-        }
+if (!isUserInteracting && !isMapPicking && routingControls.length === 0 && !document.body.classList.contains('taxameter-active')) {
+    const hasOtherDrivers = Object.keys(otherDriversMarkers).length > 0;
+    if (!hasOtherDrivers) {
+        map.panTo(currentPos, { animate: true, duration: 0.5 });
+    }
+}
         // --- KONEC PŘIDANÉHO KÓDU ---
 
         const now = Date.now();
@@ -2549,6 +2549,11 @@ taxiBaseFare = 20.00; taxiCurrentRate = ratePerKm; taxiDistanceKm = 0; taxiWaitS
      // 1. Dočasně skryjeme ovládací tlačítka, aby v PDF nebyla vidět
      actionBtns.style.display = 'none';
 
+     // PŘIDÁNO: Donutíme mapu přepočítat svou velikost a chvíli počkáme
+if (receiptMap) {
+    receiptMap.invalidateSize();
+}
+await new Promise(resolve => setTimeout(resolve, 400)); // 400ms pauza na překreslení
      // Nastavení vzhledu PDF (A5 formát vypadá pro účtenku nejlépe)
      // Pojistka proti prázdnému PDF (odrolujeme skrytě na začátek)
      window.scrollTo(0, 0);
