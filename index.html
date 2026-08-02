@@ -342,7 +342,9 @@ body.admin-mode #app-container{
             <div style="display: flex; flex-wrap: wrap; gap: 20px; font-size: 13px;">
                 <div style="flex: 1; min-width: 250px;">
                     <p style="margin: 5px 0;"><strong>Zákazník:</strong> <span id="rec-order-customer"></span></p>
+                    <p style="margin: 5px 0;"><strong>Kontakt:</strong> <span id="rec-order-contact"></span></p>
                     <p style="margin: 5px 0;"><strong>Přijato systémem:</strong> <span id="rec-order-datetime"></span></p>
+                    <p style="margin: 5px 0;"><strong>Délka trasy:</strong> <span id="rec-order-distance"></span> km</p>
                     <p style="margin: 5px 0;"><strong>Odsouhlasená cena předem:</strong> <span id="rec-order-calc-price"></span> Kč</p>
                 </div>
                 <div style="flex: 1; min-width: 250px;">
@@ -3314,11 +3316,20 @@ await new Promise(resolve => setTimeout(resolve, 400)); // 400ms pauza na překr
         currentReceiptEmailData.email = custEmail;
         currentReceiptEmailData.textBody = `Dobrý den,\n\nzasíláme Vám kopii účtenky za Vaši jízdu s Taxi Green.\n\nDopravce: Taxi služba Jaroslav Musil (IČO: 76126447) - Nejsem plátcem DPH\nŘidič: ${driverStr}\nVozidlo taxi: ${carStr} ${spzStr}\n\nNástup: ${pickup || "Nezadáno"}\nVýstup: ${dropoff || "Nezadáno"}\n\nUjeto: ${parseFloat(dist).toFixed(2)} km (á ${ratePerKm} Kč/km)\nCelkem k úhradě: ${parseFloat(price).toFixed(2)} Kč\n\nDěkujeme, že cestujete s námi!`;
 
-      // Zobrazení a naplnění informací o objednávce (Pokud se nejedná o jízdu z ulice)
+// Zobrazení a naplnění informací o objednávce (Pokud se nejedná o jízdu z ulice)
      const detailsBox = document.getElementById('receipt-order-details');
      if (orderData && orderData.customerName !== "Zákazník z ulice (Taxametr)") {
          detailsBox.style.display = 'block';
          document.getElementById('rec-order-customer').innerText = orderData.customerName || orderData.name || 'Neznámý';
+
+         // Přidání kontaktu (sloučíme telefon a e-mail, pokud existují)
+         let contactParts = [];
+         if (orderData.phone) contactParts.push(orderData.phone);
+         if (custEmail) contactParts.push(custEmail);
+         document.getElementById('rec-order-contact').innerText = contactParts.length > 0 ? contactParts.join(', ') : 'Neuveden';
+
+         // Přidání délky trasy
+         document.getElementById('rec-order-distance').innerText = parseFloat(dist).toFixed(1);
 
          let orderDate = null;
          if (orderData.date && orderData.date.seconds) { orderDate = new Date(orderData.date.seconds * 1000); }
