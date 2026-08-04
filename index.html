@@ -2697,9 +2697,24 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
 
         // Donutíme mapu přepočítat svou velikost do nového rovného rozložení
         if (receiptMap) {
+            // Uložíme si aktuální střed a přiblížení
+            let currentCenter = receiptMap.getCenter();
+            let currentZoom = receiptMap.getZoom();
+            
+            // Provedeme změnu velikosti
             receiptMap.invalidateSize();
+            
+            // Natvrdo a bez animace vrátíme mapu na správný střed, čímž se srovnají dlaždice
+            receiptMap.setView(currentCenter, currentZoom, { animate: false });
+            
+            // Donutíme vrstvu s čárou (trasou), aby se překreslila a "doskočila" na ulice
+            receiptMap.eachLayer(function (layer) {
+                if (layer instanceof L.Polyline) {
+                    layer.redraw();
+                }
+            });
         }
-        await new Promise(resolve => setTimeout(resolve, 500)); // Půl vteřiny na dokreslení dlaždic
+        await new Promise(resolve => setTimeout(resolve, 800)); // Delší pauza na kompletní srovnání vrstev
 
         // Nastavení vzhledu PDF - přepnuto na A4 formát, aby byl dostatek místa
         const opt = {
