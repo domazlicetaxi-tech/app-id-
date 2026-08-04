@@ -1303,57 +1303,63 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
     let lastSpeedTime = 0;
 
     function updateSpeedometer(pos) {
-        let speedMps = pos.coords.speed;
-        
-        // Získání rychlosti (pokud ji GPS neposílá nativně, vypočítáme ji ručně)
-        if (speedMps === null || isNaN(speedMps)) {
-            const currentTime = Date.now();
-            const currentLatLng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+    let speedMps = pos.coords.speed;
+    
+    // Uložení aktuálního času a polohy
+    const currentTime = Date.now();
+    const currentLatLng = L.latLng(pos.coords.latitude, pos.coords.longitude);
 
-            if (lastSpeedPos && lastSpeedTime) {
-                const timeDiffSec = (currentTime - lastSpeedTime) / 1000;
-                if (timeDiffSec > 0) {
-                    const distMeters = lastSpeedPos.distanceTo(currentLatLng);
-                    speedMps = distMeters / timeDiffSec;
-                }
+    // Získání rychlosti (pokud ji GPS neposílá nativně, vypočítáme ji ručně)
+    if (speedMps === null || isNaN(speedMps)) {
+        if (lastSpeedPos && lastSpeedTime) {
+            const timeDiffSec = (currentTime - lastSpeedTime) / 1000;
+            if (timeDiffSec > 0) {
+                const distMeters = lastSpeedPos.distanceTo(currentLatLng);
+                speedMps = distMeters / timeDiffSec;
             }
-            lastSpeedPos = currentLatLng;
-            lastSpeedTime = currentTime;
         }
-
-        let speedKmh = (speedMps || 0) * 3.6;
-        let speedRounded = Math.round(speedKmh);
-
-        // Propojení s HTML strukturou
-        const speedEl = document.getElementById('speedometer');
-        const valEl = document.getElementById('speed-val');
-        if (!speedEl || !valEl) return;
-
-        valEl.innerText = speedRounded;
-        speedEl.classList.remove('speed-flash');
-
-        // Logika barev
-        let color = '#22c55e'; // Výchozí zelená do 50 km/h
-        
-        if (speedRounded > 100) {
-            speedEl.classList.add('speed-flash');
-            color = '#ef4444'; // Červený text při blikání
-        } else if (speedRounded > 90) {
-            color = '#ef4444'; // Čistá červená od 91 do 100 km/h
-        } else if (speedRounded > 50) {
-            // Plynulý přechod od žluté po červenou v rozmezí 51-90 km/h
-            let ratio = (speedRounded - 50) / 40; 
-            let g = Math.round(204 * (1 - ratio));
-            color = `rgb(255, ${g}, 0)`;
-        }
-
-        // Aplikování barev
-        if (!speedEl.classList.contains('speed-flash')) {
-            speedEl.style.borderColor = color;
-            speedEl.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
-        }
-        valEl.style.color = color;
     }
+
+    // TOTO MUSÍ BÝT ZDE: Pozice a čas se aktualizují VŽDY pro případný výpadek v dalším tiku
+    lastSpeedPos = currentLatLng;
+    lastSpeedTime = currentTime;
+
+    // Převod na km/h a zaokrouhlení
+    let speedKmh = (speedMps || 0) * 3.6;
+    let speedRounded = Math.round(speedKmh);
+
+    // Propojení s HTML strukturou
+    const speedEl = document.getElementById('speedometer');
+    const valEl = document.getElementById('speed-val');
+    const unitEl = document.getElementById('speed-unit');
+    if (!speedEl || !valEl || !unitEl) return;
+
+    valEl.innerText = speedRounded;
+    speedEl.classList.remove('speed-flash');
+
+    // Nová logika barev
+    let bgColor = '#22c55e'; // Výchozí zelená do 50 km/h
+    
+    if (speedRounded > 100) {
+        speedEl.classList.add('speed-flash');
+        bgColor = '#ef4444'; // Barvu blikání řeší CSS animace
+    } else if (speedRounded > 90) {
+        bgColor = '#ef4444'; // Červená pro 91 - 100 km/h
+    } else if (speedRounded > 70) {
+        bgColor = '#f97316'; // Oranžová pro 71 - 90 km/h
+    } else if (speedRounded > 50) {
+        bgColor = '#eab308'; // Žlutá pro 51 - 70 km/h
+    }
+
+    // Aplikování barev na celé pozadí
+    if (!speedEl.classList.contains('speed-flash')) {
+        speedEl.style.backgroundColor = bgColor;
+    }
+    
+    // Text musí být vždy bílý (nebo světlý), aby vynikl na plném barevném pozadí
+    valEl.style.color = '#ffffff';
+    unitEl.style.color = 'rgba(255, 255, 255, 0.9)';
+}
     // --- KONEC LOGIKY RYCHLOMĚRU ---
 
     // Nová hlavní funkce pro sledování
