@@ -295,12 +295,11 @@ body.admin-mode #app-container{
     z-index: 1000;
     transition: background-color 0.3s ease;
 
-    /* Pevné ukotvení do levé dolní části mapy, v bezpečí před horním panelem */
+    /* Umístění vlevo s bezpečným odskokem pod horní panel */
     position: absolute !important;
-    top: auto !important;       /* Vynulujeme předchozí zarovnání shora */
-    bottom: 30px !important;    /* Kousek nad spodním okrajem obrazovky */
-    left: 20px !important;      /* Kousek od levého okraje */
-    transform: none !important; /* Zrušíme jakékoliv nechtěné uskakování */
+    top: 140px !important;      /* Posune rychloměr dostatečně nízko, aby nebyl překrytý */
+    left: 15px !important;      /* Kousek od okraje, aby se neořezával */
+    transform: none !important; /* Zrušíme případné uskakování */
     margin: 0 !important;
 }
 
@@ -309,7 +308,7 @@ body.admin-mode #app-container{
 }
 
 @keyframes flash-red {
-    /* Pulzování už nesmí obsahovat posouvání přes translateY */
+    /* Pulzování už nyní mění pouze velikost, nemanipuluje s pozicí */
     0% { background-color: #ef4444; transform: scale(1); }
     100% { background-color: #7f1d1d; transform: scale(1.1); }
 }
