@@ -2599,7 +2599,8 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         mapEl.style.display = 'block';
 
         if (!receiptMap) {
-            receiptMap = L.map('receipt-map', { zoomControl: false, attributionControl: false }).setView(startLatLng, 13);
+            // PŘIDÁNO preferCanvas: true -> Donutí mapu kreslit trasu jako obraz, takže v PDF neodskočí
+            receiptMap = L.map('receipt-map', { zoomControl: false, attributionControl: false, preferCanvas: true }).setView(startLatLng, 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(receiptMap);
         } else {
             receiptMap.eachLayer((layer) => { if (layer instanceof L.Marker || layer instanceof L.Polyline) receiptMap.removeLayer(layer); });
