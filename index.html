@@ -2681,10 +2681,10 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         const modalContent = document.querySelector('.modal-content');
         const modalOverlay = document.getElementById('receipt-modal');
 
-        // 1. Dočasně skryjeme ovládací tlačítka, aby v PDF nebyla
+        // 1. Dočasně skryjeme ovládací tlačítka
         actionBtns.style.display = 'none';
 
-        // 2. Úprava stylů okna, aby generátor PDF nevyfotil oříznutou nebo posunutou mapu
+        // 2. Úprava stylů okna pro vyfocení (odstranění rolování)
         const origMaxHeight = modalContent.style.maxHeight;
         const origOverflow = modalContent.style.overflowY;
         const origAlignItems = modalOverlay.style.alignItems;
@@ -2693,28 +2693,26 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         modalContent.style.overflowY = 'visible';
         modalOverlay.style.alignItems = 'flex-start'; 
         
+        // 3. Zásadní krok: Vynulujeme rolování na všech úrovních, aby generátor nevyfotil posunutý obraz
         modalOverlay.scrollTop = 0;
+        modalContent.scrollTop = 0;
         window.scrollTo(0, 0);
 
-        // 3. Necháme prohlížeč 100ms, aby okno fyzicky přesunul, než na něj sáhneme
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        // 4. KLÍČOVÁ OPRAVA: Donutíme mapu a BAREVNOU TRASU (SVG) se kompletně resetovat
+        // 4. Přepočet velikosti mapy v nově roztaženém okně
         if (receiptMap) {
             receiptMap.invalidateSize();
-            // Parametr { reset: true } smaže staré souřadnice a nakreslí trasu nově podle aktuální pozice
-            receiptMap.setView(receiptMap.getCenter(), receiptMap.getZoom(), { reset: true });
         }
         
-        // Dáme prohlížeči chvíli na překreslení obrazovky
-        await new Promise(resolve => setTimeout(resolve, 800));
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         // Nastavení vzhledu PDF
         const opt = {
             margin:       10,
             filename:     'Doklad_Taxi_Green.pdf',
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+            html2canvas:  { scale: 2, useCORS: true, scrollY: 0, scrollX: 0 },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
@@ -2732,7 +2730,7 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
                 });
             } else {
                 html2pdf().set(opt).from(modalContent).save();
-                alert("Doklad byl stažen do telefonu jako PDF. Můžete jej nyní odeslat.");
+                alert("Doklad byl stažen do telefonu jako PDF.");
             }
         } catch (error) {
             console.error("Chyba při generování PDF:", error);
