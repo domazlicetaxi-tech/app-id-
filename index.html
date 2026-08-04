@@ -389,6 +389,35 @@ body.dark-mode .btn-calc {
 body.dark-mode .btn-calc:hover {
     background-color: #475569 !important;
 }     
+   /* --- ÚPRAVA TABULEK HISTORIE PRO NOČNÍ REŽIM --- */
+body.dark-mode .admin-table-container th,
+body.dark-mode .admin-table-container td,
+body.dark-mode .admin-table-container tr {
+    background-color: #1e293b !important; /* Tmavě modro-šedé pozadí buněk */
+    color: #f8fafc !important; /* Bílý text pro skvělou čitelnost */
+    border-color: #334155 !important; /* Decentní tmavé ohraničení */
+}
+
+/* Hlavička tabulky bude ještě o trochu tmavší pro jasné oddělení */
+body.dark-mode .admin-table-container thead tr {
+    background-color: #0f172a !important; 
+}
+
+/* Přebití šedých a černých textů (např. čas pod datem nebo poloha) */
+body.dark-mode .admin-table-container td span {
+    color: #cbd5e1 !important; /* Světle šedá, dobře čitelná */
+}
+
+/* Zesvětlení tmavě modrých odkazů na telefony, aby v noci svítily */
+body.dark-mode .admin-table-container td a,
+body.dark-mode .admin-link {
+    color: #38bdf8 !important; /* Světlejší azurová barva */
+}
+
+/* Výjimka pro cenu - zachováme její zelenou barvu, ale v jasnějším odstínu */
+body.dark-mode .admin-table-container td b[style*="--green-primary"] {
+    color: #4ade80 !important; 
+}
     </style>
 </head>
 <body>
