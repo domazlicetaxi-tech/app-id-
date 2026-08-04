@@ -2578,6 +2578,11 @@ let iconRotation = Math.max(-25, Math.min(25, diff));
 
     async function startFare(tariffName, ratePerKm) {
         if (!navigator.geolocation) { alert("Váš prohlížeč nepodporuje GPS polohu."); return; }
+        if ('speechSynthesis' in window) {
+            let silentUtterance = new SpeechSynthesisUtterance('');
+            silentUtterance.volume = 0;
+            window.speechSynthesis.speak(silentUtterance);
+        }
         requestWakeLock();
         
         spustTaxameterRezim();
