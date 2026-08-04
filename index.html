@@ -2674,7 +2674,7 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         window.print();
     }
 
-  // --- FUNKCE PRO ODESLÁNÍ PDF ELEKTRONICKY (WhatsApp, E-mail, atd.) ---
+// --- FUNKCE PRO ODESLÁNÍ PDF ELEKTRONICKY (WhatsApp, E-mail, atd.) ---
     async function sendReceiptEmail() {
         const actionBtns = document.getElementById('receipt-action-buttons');
         const modalContent = document.querySelector('.modal-content');
@@ -2690,33 +2690,24 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
 
         modalContent.style.maxHeight = 'none';
         modalContent.style.overflowY = 'visible';
-        modalOverlay.style.alignItems = 'flex-start'; // Zruší centrování na střed, které dělá posun
+        modalOverlay.style.alignItems = 'flex-start'; 
         
         modalOverlay.scrollTop = 0;
         window.scrollTo(0, 0);
 
-        // Donutíme mapu přepočítat svou velikost do nového rovného rozložení
+        // 3. Donutíme mapu a zejména BAREVNOU TRASU (SVG), aby se znovu zarovnaly s ulicemi
         if (receiptMap) {
-            // Uložíme si aktuální střed a přiblížení
-            let currentCenter = receiptMap.getCenter();
-            let currentZoom = receiptMap.getZoom();
-            
-            // Provedeme změnu velikosti
             receiptMap.invalidateSize();
-            
-            // Natvrdo a bez animace vrátíme mapu na správný střed, čímž se srovnají dlaždice
-            receiptMap.setView(currentCenter, currentZoom, { animate: false });
-            
-            // Donutíme vrstvu s čárou (trasou), aby se překreslila a "doskočila" na ulice
-            receiptMap.eachLayer(function (layer) {
-                if (layer instanceof L.Polyline) {
-                    layer.redraw();
-                }
-            });
+            // Fígl pro Leaflet: Oddálení a přiblížení natvrdo přepočítá vrstvu s trasou
+            let currentZoom = receiptMap.getZoom();
+            receiptMap.setZoom(currentZoom - 1, { animate: false });
+            receiptMap.setZoom(currentZoom, { animate: false });
         }
-        await new Promise(resolve => setTimeout(resolve, 800)); // Delší pauza na kompletní srovnání vrstev
+        
+        // Dáme prohlížeči chvíli na překreslení obrazovky
+        await new Promise(resolve => setTimeout(resolve, 800));
 
-        // Nastavení vzhledu PDF - přepnuto na A4 formát, aby byl dostatek místa
+        // Nastavení vzhledu PDF
         const opt = {
             margin:       10,
             filename:     'Doklad_Taxi_Green.pdf',
@@ -2726,11 +2717,11 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         };
 
         try {
-            // 3. Vygenerujeme PDF
+            // 4. Vygenerujeme PDF
             const pdfBlob = await html2pdf().set(opt).from(modalContent).output('blob');
             const file = new File([pdfBlob], 'Doklad_Taxi_Green.pdf', { type: 'application/pdf' });
 
-            // 4. Sdílení do aplikací telefonu (WhatsApp, Gmail, zprávy...)
+            // 5. Sdílení do aplikací telefonu
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({
                     title: 'Doklad Taxi Green',
@@ -2738,15 +2729,14 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
                     files: [file]
                 });
             } else {
-                // Alternativa pro starší telefony
                 html2pdf().set(opt).from(modalContent).save();
                 alert("Doklad byl stažen do telefonu jako PDF. Můžete jej nyní odeslat.");
             }
         } catch (error) {
-            console.error("Chyba při generování a sdílení PDF:", error);
+            console.error("Chyba při generování PDF:", error);
             alert("Nepodařilo se vygenerovat PDF dokument.");
         } finally {
-            // 5. Vrátíme vše na obrazovce do původního stavu
+            // 6. Vrátíme vše na obrazovce do původního stavu
             actionBtns.style.display = 'block';
             modalContent.style.maxHeight = origMaxHeight;
             modalContent.style.overflowY = origOverflow;
