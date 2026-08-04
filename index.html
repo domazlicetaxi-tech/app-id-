@@ -283,7 +283,7 @@ body.admin-mode #app-container{
         }
    /* --- RYCHLOMĚR (SPEEDOMETER) --- */
 #speedometer {
-    width: 65px; /* Mírně zvětšeno pro lepší čitelnost */
+    width: 65px; 
     height: 65px;
     border-radius: 50%;
     display: flex;
@@ -291,15 +291,17 @@ body.admin-mode #app-container{
     align-items: center;
     justify-content: center;
     box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-    border: 3px solid #ffffff; /* Silný bílý okraj, aby vynikl na mapě */
+    border: 3px solid #ffffff; 
     z-index: 1000;
     transition: background-color 0.3s ease;
 
-    /* Nová fixní pozice vlevo uprostřed mapy (na úrovni autíčka) */
+    /* Pozice */
     position: absolute !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    left: 15px !important;
+    top: 50% !important; 
+    /* Posunutí rychloměru nepatrně níž (menší mezera nad autíčkem) */
+    transform: translateY(calc(-100% - 10px)) !important; 
+    /* Odsazení více doprava od levého okraje, aby nebyl oříznutý */
+    left: 30px !important;
     margin: 0 !important;
 }
 
@@ -308,9 +310,9 @@ body.admin-mode #app-container{
 }
 
 @keyframes flash-red {
-    /* Pozor: Zde musí být zachován i transform translateY, aby kolečko neuskakovalo */
-    0% { background-color: #ef4444; transform: translateY(-50%) scale(1); }
-    100% { background-color: #7f1d1d; transform: translateY(-50%) scale(1.1); }
+    /* Animace musí mít stejné odsazení, aby kolečko neuskakovalo */
+    0% { background-color: #ef4444; transform: translateY(calc(-100% - 10px)) scale(1); }
+    100% { background-color: #7f1d1d; transform: translateY(calc(-100% - 10px)) scale(1.1); }
 }
 /* --- NOČNÍ REŽIM --- */
 body.dark-mode {
