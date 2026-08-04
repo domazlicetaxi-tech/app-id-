@@ -178,7 +178,7 @@ body.admin-mode #app-container{
 
         /* --- STYLY PRO PLYNULOU AKTIVACI TAXAMETRU --- */
         body.taxameter-active { margin: 0; padding: 0; overflow: hidden; width: 100vw; height: 100vh; }
-        body.taxameter-active #panel, body.taxameter-active .leaflet-control-container { display: none !important; }
+        body.taxameter-active #panel, body.taxameter-active .leaflet-control-zoom { display: none !important; }
         
         #taxameter-top-panel { display: none; }
         
@@ -282,20 +282,24 @@ body.admin-mode #app-container{
         }
    /* --- RYCHLOMĚR (SPEEDOMETER) --- */
 #speedometer {
-    width: 60px;
-    height: 60px;
-    background: rgba(255, 255, 255, 0.95);
-    border: 4px solid #22c55e;
+    width: 65px; /* Mírně zvětšeno pro lepší čitelnost */
+    height: 65px;
     border-radius: 50%;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    margin-top: 20px !important; /* Kousíček níž od horního okraje */
-    margin-left: 15px !important; /* Při levém okraji */
-    transition: border-color 0.3s ease, background-color 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    border: 3px solid #ffffff; /* Silný bílý okraj, aby vynikl na mapě */
     z-index: 1000;
+    transition: background-color 0.3s ease;
+
+    /* Nová fixní pozice vlevo uprostřed mapy (na úrovni autíčka) */
+    position: absolute !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    left: 15px !important;
+    margin: 0 !important;
 }
 
 #speedometer.speed-flash {
@@ -303,8 +307,9 @@ body.admin-mode #app-container{
 }
 
 @keyframes flash-red {
-    0% { border-color: #ef4444; background: rgba(255, 255, 255, 0.95); }
-    100% { border-color: #ef4444; background: #fca5a5; }
+    /* Pozor: Zde musí být zachován i transform translateY, aby kolečko neuskakovalo */
+    0% { background-color: #ef4444; transform: translateY(-50%) scale(1); }
+    100% { background-color: #7f1d1d; transform: translateY(-50%) scale(1.1); }
 }
             </style>
 </head>
