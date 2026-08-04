@@ -442,28 +442,48 @@ body.dark-mode .admin-link {
 body.dark-mode .admin-table-container td b[style*="--green-primary"] {
     color: #4ade80 !important; 
 }
-   /* --- VYNUCENÁ POZICE NAŠEPTÁVAČE NAHOŘE UPROSTŘED (Oprava skrývání) --- */
-#nav-instruction-box, 
-body.taxameter-active #nav-instruction-box {
+   /* --- PLOVOUCÍ TEXT NAŠEPTÁVAČE (Bez pozadí, jen text nad mapou) --- */
+#nav-instruction-box {
     position: absolute !important; 
     top: 20px !important; 
     left: 50% !important; 
     transform: translateX(-50%) !important; 
     width: 90% !important; 
     max-width: 400px !important; 
-    background: rgba(15, 23, 42, 0.95) !important; 
+    
+    /* Zrušíme černé pozadí a rámečky */
+    background: transparent !important; 
+    border: none !important;
+    box-shadow: none !important;
+    
+    /* Zvětšený bílý text s tlustým černým obrysem (bude vidět na každé mapě) */
     color: #ffffff !important; 
-    padding: 12px 16px !important; 
-    border-radius: 12px !important; 
-    box-shadow: 0 8px 25px rgba(0,0,0,0.5) !important; 
-    z-index: 9999 !important; /* Zajišťuje, že bude vždy nad mapou */
+    text-shadow: 
+        -2px -2px 0 #000,  
+         2px -2px 0 #000,
+        -2px  2px 0 #000,
+         2px  2px 0 #000,
+         0px  4px 10px rgba(0,0,0,0.8) !important;
+         
+    z-index: 9999 !important; 
     align-items: center !important; 
-    gap: 14px !important; 
-    font-weight: 700 !important; 
-    border-left: 6px solid #22c55e !important; 
-    font-size: 16px !important;
-    bottom: auto !important; /* Přebije stará pravidla */
+    justify-content: center !important;
+    gap: 15px !important; 
+    font-weight: 900 !important; 
+    font-size: 20px !important; 
+    bottom: auto !important;
     right: auto !important;
+}
+
+/* V režimu Taxametru panel posuneme výrazně níž, PŘÍMO na plochu mapy */
+body.taxameter-active #nav-instruction-box {
+    top: 240px !important; 
+}
+
+#nav-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Skrytí nechtěného pravého panelu Leaflet Routing Machine */
