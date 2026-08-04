@@ -442,6 +442,34 @@ body.dark-mode .admin-link {
 body.dark-mode .admin-table-container td b[style*="--green-primary"] {
     color: #4ade80 !important; 
 }
+   /* --- VYNUCENÁ POZICE NAŠEPTÁVAČE NAHOŘE UPROSTŘED (Oprava skrývání) --- */
+#nav-instruction-box, 
+body.taxameter-active #nav-instruction-box {
+    position: absolute !important; 
+    top: 20px !important; 
+    left: 50% !important; 
+    transform: translateX(-50%) !important; 
+    width: 90% !important; 
+    max-width: 400px !important; 
+    background: rgba(15, 23, 42, 0.95) !important; 
+    color: #ffffff !important; 
+    padding: 12px 16px !important; 
+    border-radius: 12px !important; 
+    box-shadow: 0 8px 25px rgba(0,0,0,0.5) !important; 
+    z-index: 9999 !important; /* Zajišťuje, že bude vždy nad mapou */
+    align-items: center !important; 
+    gap: 14px !important; 
+    font-weight: 700 !important; 
+    border-left: 6px solid #22c55e !important; 
+    font-size: 16px !important;
+    bottom: auto !important; /* Přebije stará pravidla */
+    right: auto !important;
+}
+
+/* Skrytí nechtěného pravého panelu Leaflet Routing Machine */
+.leaflet-routing-container {
+    display: none !important;
+}
     </style>
 </head>
 <body>
@@ -1201,13 +1229,17 @@ body.dark-mode .admin-table-container td b[style*="--green-primary"] {
                 currentDistToNextTurn = currentPos.distanceTo(turnLatLng);
                 let roundedDist = Math.round(currentDistToNextTurn);
                 let directionText = translateInstruction(nextInstr);
-                box.style.display = 'flex';
+                
+                // TOTO ZARUČÍ ZOBRAZENÍ BOXU
+                box.style.setProperty('display', 'flex', 'important');
+                
                 document.getElementById('nav-text').innerHTML = `Za ${roundedDist} m: <b>${directionText}</b>`;
                 document.getElementById('nav-icon').innerText = getInstructionIcon(nextInstr.type);
+                
                 triggerVoiceAnnouncement(directionText, roundedDist);
             }
         } else if (box) {
-            box.style.display = 'flex';
+            box.style.setProperty('display', 'flex', 'important');
             document.getElementById('nav-text').innerText = "Blížíte se k cíli";
             document.getElementById('nav-icon').innerText = "🏁";
         }
