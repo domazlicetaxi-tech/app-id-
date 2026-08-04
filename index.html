@@ -983,24 +983,22 @@ body.dark-mode .admin-table-container td b[style*="--green-primary"] {
 
         const topPanel = document.getElementById('taxameter-top-panel');
         const taxiRunning = document.getElementById('taxi-running');
-        const navBox = document.getElementById('nav-instruction-box');
 
-        // Přesunutí celého taxametru a navigační lišty nahoru nad mapu
+        // Přesuneme nahoru POUZE HW taxametr. Navigační box zůstává ukotven na mapě!
         topPanel.appendChild(taxiRunning);
-        topPanel.appendChild(navBox);
     }
 
     function stopTaxameterRezim() {
         document.body.classList.remove('taxameter-active');
 
         const sectionTaximeter = document.getElementById('section-taximeter');
-        const appContainer = document.getElementById('app-container');
         const taxiRunning = document.getElementById('taxi-running');
-        const navBox = document.getElementById('nav-instruction-box');
 
-        // Vrácení prvků do původního stavu pro dispečink
+        // Vrácení HW taxametru zpět do původního panelu
         sectionTaximeter.appendChild(taxiRunning);
-        appContainer.appendChild(navBox);
+
+        // Skrytí navigačního boxu při zrušení/vynulování jízdy
+        hideNavigationInstructionsUI();
 
         // Vynulování offsetů a mapy zpět
         const mapEl = document.getElementById('map');
