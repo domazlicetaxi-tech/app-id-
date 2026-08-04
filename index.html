@@ -2745,7 +2745,8 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         taxiBaseFare = 20; taxiDistanceKm = 0; taxiWaitSeconds = 0; taxiWaitCost = 0; taxiLastPosition = null;
      taxiRouteTrail = []; // Vymazani stare stopy
         document.getElementById('taxi-target-input').value = ""; document.getElementById('taxi-display-target').innerText = "Nezadáno"; coordsData.dropoff = null; clearRoutes();
-        
+
+        hideNavigationInstructionsUI(); // Okamžitě schová plovoucí navigační box
         document.getElementById('taxi-setup').style.display = 'block';
         document.getElementById('taxi-running').style.display = 'none';
     }
