@@ -374,7 +374,22 @@ body.dark-mode .leaflet-control-attribution {
 body.dark-mode .leaflet-container {
     background: #0f172a !important; 
 }
-            </style>
+    /* Ztmavení podkladu pod přepínačem Město / Mimo město */
+body.dark-mode .mode-toggle {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+}
+
+/* Oprava neviditelného tlačítka "Vypočítat trasu a cenu" v noci */
+body.dark-mode .btn-calc {
+    background-color: #334155 !important; /* Tmavě šedo-modrá místo bílé */
+    color: #ffffff !important;
+    border: 1px solid #475569 !important;
+}
+body.dark-mode .btn-calc:hover {
+    background-color: #475569 !important;
+}     
+    </style>
 </head>
 <body>
 
