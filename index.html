@@ -2695,13 +2695,14 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         modalOverlay.scrollTop = 0;
         window.scrollTo(0, 0);
 
-        // 3. Donutíme mapu a zejména BAREVNOU TRASU (SVG), aby se znovu zarovnaly s ulicemi
+        // 3. Necháme prohlížeč 100ms, aby okno fyzicky přesunul, než na něj sáhneme
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // 4. KLÍČOVÁ OPRAVA: Donutíme mapu a BAREVNOU TRASU (SVG) se kompletně resetovat
         if (receiptMap) {
             receiptMap.invalidateSize();
-            // Fígl pro Leaflet: Oddálení a přiblížení natvrdo přepočítá vrstvu s trasou
-            let currentZoom = receiptMap.getZoom();
-            receiptMap.setZoom(currentZoom - 1, { animate: false });
-            receiptMap.setZoom(currentZoom, { animate: false });
+            // Parametr { reset: true } smaže staré souřadnice a nakreslí trasu nově podle aktuální pozice
+            receiptMap.setView(receiptMap.getCenter(), receiptMap.getZoom(), { reset: true });
         }
         
         // Dáme prohlížeči chvíli na překreslení obrazovky
@@ -2717,11 +2718,11 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         };
 
         try {
-            // 4. Vygenerujeme PDF
+            // 5. Vygenerujeme PDF
             const pdfBlob = await html2pdf().set(opt).from(modalContent).output('blob');
             const file = new File([pdfBlob], 'Doklad_Taxi_Green.pdf', { type: 'application/pdf' });
 
-            // 5. Sdílení do aplikací telefonu
+            // 6. Sdílení do aplikací telefonu
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({
                     title: 'Doklad Taxi Green',
@@ -2736,7 +2737,7 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
             console.error("Chyba při generování PDF:", error);
             alert("Nepodařilo se vygenerovat PDF dokument.");
         } finally {
-            // 6. Vrátíme vše na obrazovce do původního stavu
+            // 7. Vrátíme vše na obrazovce do původního stavu
             actionBtns.style.display = 'block';
             modalContent.style.maxHeight = origMaxHeight;
             modalContent.style.overflowY = origOverflow;
