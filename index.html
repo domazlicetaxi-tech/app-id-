@@ -295,13 +295,12 @@ body.admin-mode #app-container{
     z-index: 1000;
     transition: background-color 0.3s ease;
 
-    /* Pozice */
+    /* Pevné ukotvení do levé dolní části mapy, v bezpečí před horním panelem */
     position: absolute !important;
-    top: 50% !important; 
-    /* Posunutí rychloměru nepatrně níž (menší mezera nad autíčkem) */
-    transform: translateY(calc(-100% - 10px)) !important; 
-    /* Odsazení více doprava od levého okraje, aby nebyl oříznutý */
-    left: 30px !important;
+    top: auto !important;       /* Vynulujeme předchozí zarovnání shora */
+    bottom: 30px !important;    /* Kousek nad spodním okrajem obrazovky */
+    left: 20px !important;      /* Kousek od levého okraje */
+    transform: none !important; /* Zrušíme jakékoliv nechtěné uskakování */
     margin: 0 !important;
 }
 
@@ -310,9 +309,9 @@ body.admin-mode #app-container{
 }
 
 @keyframes flash-red {
-    /* Animace musí mít stejné odsazení, aby kolečko neuskakovalo */
-    0% { background-color: #ef4444; transform: translateY(calc(-100% - 10px)) scale(1); }
-    100% { background-color: #7f1d1d; transform: translateY(calc(-100% - 10px)) scale(1.1); }
+    /* Pulzování už nesmí obsahovat posouvání přes translateY */
+    0% { background-color: #ef4444; transform: scale(1); }
+    100% { background-color: #7f1d1d; transform: scale(1.1); }
 }
 /* --- NOČNÍ REŽIM --- */
 body.dark-mode {
