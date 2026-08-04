@@ -2674,56 +2674,70 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         window.print();
     }
 
-   // --- FUNKCE PRO ODESLÁNÍ PDF ELEKTRONICKY (WhatsApp, E-mail, atd.) ---
- async function sendReceiptEmail() {
-     const actionBtns = document.getElementById('receipt-action-buttons');
-     const modalContent = document.querySelector('.modal-content');
+  // --- FUNKCE PRO ODESLÁNÍ PDF ELEKTRONICKY (WhatsApp, E-mail, atd.) ---
+    async function sendReceiptEmail() {
+        const actionBtns = document.getElementById('receipt-action-buttons');
+        const modalContent = document.querySelector('.modal-content');
+        const modalOverlay = document.getElementById('receipt-modal');
 
-     // 1. Dočasně skryjeme ovládací tlačítka, aby v PDF nebyla vidět
-     actionBtns.style.display = 'none';
+        // 1. Dočasně skryjeme ovládací tlačítka, aby v PDF nebyla
+        actionBtns.style.display = 'none';
 
-     // PŘIDÁNO: Donutíme mapu přepočítat svou velikost a chvíli počkáme
-if (receiptMap) {
-    receiptMap.invalidateSize();
-}
-await new Promise(resolve => setTimeout(resolve, 400)); // 400ms pauza na překreslení
-     // Nastavení vzhledu PDF (A5 formát vypadá pro účtenku nejlépe)
-     // Pojistka proti prázdnému PDF (odrolujeme skrytě na začátek)
-     window.scrollTo(0, 0);
+        // 2. Úprava stylů okna, aby generátor PDF nevyfotil oříznutou nebo posunutou mapu
+        const origMaxHeight = modalContent.style.maxHeight;
+        const origOverflow = modalContent.style.overflowY;
+        const origAlignItems = modalOverlay.style.alignItems;
 
-     const opt = {
-         margin:       10,
-         filename:     'Uctenka_Taxi_Green.pdf',
-         image:        { type: 'jpeg', quality: 0.98 },
-         html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
-         jsPDF:        { unit: 'mm', format: 'a5', orientation: 'portrait' }
-     };
+        modalContent.style.maxHeight = 'none';
+        modalContent.style.overflowY = 'visible';
+        modalOverlay.style.alignItems = 'flex-start'; // Zruší centrování na střed, které dělá posun
+        
+        modalOverlay.scrollTop = 0;
+        window.scrollTo(0, 0);
 
-     try {
-         // 2. Vygenerujeme PDF do paměti telefonu (jako tzv. Blob)
-         const pdfBlob = await html2pdf().set(opt).from(modalContent).output('blob');
-         const file = new File([pdfBlob], 'Uctenka_Taxi_Green.pdf', { type: 'application/pdf' });
+        // Donutíme mapu přepočítat svou velikost do nového rovného rozložení
+        if (receiptMap) {
+            receiptMap.invalidateSize();
+        }
+        await new Promise(resolve => setTimeout(resolve, 500)); // Půl vteřiny na dokreslení dlaždic
 
-         // 3. Otevřeme systémové sdílení telefonu (WhatsApp, Gmail, zprávy...)
-         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-             await navigator.share({
-                 title: 'Účtenka Taxi Green',
-                 text: 'Dobrý den, v příloze zasíláme účtenku za Vaši jízdu s Taxi Green.',
-                 files: [file]
-             });
-         } else {
-             // Alternativa, pokud starší telefon přímé sdílení souborů nepodporuje
-             html2pdf().set(opt).from(modalContent).save();
-             alert("Účtenka byla stažena do telefonu jako PDF. Můžete ji nyní odeslat.");
-         }
-     } catch (error) {
-         console.error("Chyba při generování a sdílení PDF:", error);
-         alert("Nepodařilo se vygenerovat PDF dokument.");
-     } finally {
-         // 4. Vrátíme tlačítka zpět na obrazovku pro řidiče
-         actionBtns.style.display = 'block';
-     }
- }
+        // Nastavení vzhledu PDF - přepnuto na A4 formát, aby byl dostatek místa
+        const opt = {
+            margin:       10,
+            filename:     'Doklad_Taxi_Green.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        try {
+            // 3. Vygenerujeme PDF
+            const pdfBlob = await html2pdf().set(opt).from(modalContent).output('blob');
+            const file = new File([pdfBlob], 'Doklad_Taxi_Green.pdf', { type: 'application/pdf' });
+
+            // 4. Sdílení do aplikací telefonu (WhatsApp, Gmail, zprávy...)
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    title: 'Doklad Taxi Green',
+                    text: 'Dobrý den, v příloze zasíláme doklad za Vaši jízdu s Taxi Green.',
+                    files: [file]
+                });
+            } else {
+                // Alternativa pro starší telefony
+                html2pdf().set(opt).from(modalContent).save();
+                alert("Doklad byl stažen do telefonu jako PDF. Můžete jej nyní odeslat.");
+            }
+        } catch (error) {
+            console.error("Chyba při generování a sdílení PDF:", error);
+            alert("Nepodařilo se vygenerovat PDF dokument.");
+        } finally {
+            // 5. Vrátíme vše na obrazovce do původního stavu
+            actionBtns.style.display = 'block';
+            modalContent.style.maxHeight = origMaxHeight;
+            modalContent.style.overflowY = origOverflow;
+            modalOverlay.style.alignItems = origAlignItems;
+        }
+    }
 
     // --- TISK Z TAXAMETRU ---
    function printReceipt() {
