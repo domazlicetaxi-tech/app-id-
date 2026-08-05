@@ -2423,24 +2423,25 @@ if (!isUserInteracting && !isMapPicking && routingControls.length === 0 && !docu
 
     // --- FUNKCE PO POTVRZENÍ NASTOUPENÍ ZÁKAZNÍKA ---
     function startRideAfterUzJdu() {
-        stopAlarm();
-        document.getElementById('btn-customer-on-way').style.display = 'none';
+    stopAlarm();
+    document.getElementById('btn-customer-on-way').style.display = 'none';
 
-        if (activeOrderId && db) {
-            db.collection("taxi_orders").doc(activeOrderId).update({ status: "Zákazník nastoupil" });
-            if (currentEditingOrder) currentEditingOrder.status = "Zákazník nastoupil"; 
-        }
-
-        let dropoffVal = document.getElementById('dropoff').value.trim();
-        
-        if (dropoffVal !== "") {
-            // Pokud cíl existuje, zapne navigaci do cíle
-            startNavigationToDropoff(); 
-        } else {
-            // Pokud cíl NEEXISTUJE, přepne tlačítka -> schová navigaci a ukáže 'Dokončit jízdu'
-            resetActionButtons();
-        }
+    if (activeOrderId && db) {
+        db.collection("taxi_orders").doc(activeOrderId).update({ status: "Zákazník nastoupil" });
+        if (currentEditingOrder) currentEditingOrder.status = "Zákazník nastoupil"; 
     }
+
+    let dropoffVal = document.getElementById('dropoff').value.trim();
+    
+    // Ošetření prázdného cíle: Navigaci spustí jen, když je cíl skutečně vyplněn
+    if (dropoffVal !== "" && dropoffVal.toLowerCase() !== "nezadáno") {
+        startNavigationToDropoff(); 
+    } else {
+        // Cíl neexistuje -> Vynutíme prázdné pole a zobrazíme "Dokončit jízdu"
+        document.getElementById('dropoff').value = ""; 
+        resetActionButtons();
+    }
+}
 
         
 
