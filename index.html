@@ -3484,7 +3484,7 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
     map.setBearing(0); 
     clearRoutes(); hideNavigationInstructionsUI(); releaseWakeLock(); locationSharingActive = false;
     
-    // 1. ZCELA VYMAZAT ŠPENDLÍKY (IKONY) Z MAPY
+    // Vymazání špendlíků z mapy
     tempMarkers.clearLayers();
     
     document.getElementById('btn-stop-nav').style.display = 'none'; 
@@ -3500,13 +3500,25 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
     if (activeOrderId && db) {
         const orderRef = db.collection("taxi_orders").doc(activeOrderId);
         orderRef.get().then(doc => {
-            // 2. Musíme uznat i stav "Zákazník ve voze", nejen "Zákazník nastoupil"
+            // Ukončení jízdy, pokud je zákazník ve voze
             if (doc.exists && (doc.data().status === "Zákazník nastoupil" || doc.data().status === "Zákazník ve voze")) {
-                orderRef.update({ status: "Dokončeno", driverLat: null, driverLng: null, eta: null, targetArrivalTime: null });
+                
+                // OPRAVA: Zajištění propisu správné ceny, i když se nejede na taxametr
+                let finalPrice = doc.data().price || doc.data().calculatedPrice || 0;
+                
+                orderRef.update({ 
+                    status: "Dokončeno", 
+                    price: finalPrice, 
+                    driverLat: null, 
+                    driverLng: null, 
+                    eta: null, 
+                    targetArrivalTime: null 
+                });
+                
                 activeOrderId = null; // Vyčistí paměť aplikace pro další jízdu
                 alert("Jízda byla úspěšně dokončena.");
                 
-                // 3. VYMAZAT TEXTY Z DISPEČINKU
+                // Vyčištění formuláře
                 document.getElementById('pickup').value = "";
                 document.getElementById('dropoff').value = "";
                 resetActionButtons();
@@ -3517,9 +3529,6 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         });
     }
 }
-        
-        if (coordsData.pickup) { map.setView(coordsData.pickup, 14); }
-    }
 
     function prepareAdminView() {
         const mapEl = document.getElementById('map');
