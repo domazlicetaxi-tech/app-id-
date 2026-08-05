@@ -2764,14 +2764,14 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
 
     taxiEndLatLng = taxiLastPosition;
 
-    // ZDE JE HLAVNÍ ZMĚNA: Okamžitý zápis do historie jako DOKONČENO
+    // Průběžný zápis dat, ale jízda zůstává aktivní ("Zákazník ve voze")
     if (db) {
         const total = taxiBaseFare + (taxiDistanceKm * taxiCurrentRate) + taxiWaitCost;
 
         if (activeOrderId) {
             // A) Zákazník z klientské aplikace
             db.collection("taxi_orders").doc(activeOrderId).update({
-                status: "Dokončeno", // <-- Definitivní ukončení jízdy
+                status: "Zákazník ve voze", // Jízda stále běží, neukončuje se
                 price: total.toFixed(2),
                 distance: taxiDistanceKm.toFixed(2),
                 waitCost: taxiWaitCost,
@@ -2779,8 +2779,6 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
                 routeTrail: taxiRouteTrail.map(pt => ({lat: pt.lat, lng: pt.lng})),
                 dropoffLat: taxiEndLatLng ? taxiEndLatLng.lat : null,
                 dropoffLng: taxiEndLatLng ? taxiEndLatLng.lng : null
-            }).then(() => {
-                activeOrderId = null; // Vyčistíme paměť, zakázka je zcela uzavřena
             }).catch(e => console.error("Chyba uložení do app objednávky: ", e));
             
         } else {
@@ -2793,7 +2791,7 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
             if (!tText || tText === "Nezadáno") tText = "Dle taxametru (Z ulice)";
 
             let orderData = {
-                status: "Dokončeno", // <-- Definitivní ukončení jízdy
+                status: "Zákazník ve voze", // Jízda stále běží, neukončuje se
                 customerName: "Zákazník z ulice (Taxametr)",
                 pickup: "Nástup z ulice",
                 dropoff: tText,
@@ -2814,10 +2812,12 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
             };
 
             if (!currentTaximeterOrderId) {
-                db.collection("taxi_orders").add(orderData).catch(e => console.error("Chyba uložení taxametru: ", e));
+                db.collection("taxi_orders").add(orderData).then(docRef => {
+                    currentTaximeterOrderId = docRef.id;
+                }).catch(e => console.error("Chyba uložení taxametru: ", e));
             } else {
-                db.collection("taxi_orders").doc(currentTaximeterOrderId).update(orderData).catch(e => console.error("Chyba aktualizace taxametru: ", e));
-                currentTaximeterOrderId = null; // Vyčistíme paměť
+                db.collection("taxi_orders").doc(currentTaximeterOrderId).update(orderData)
+                  .catch(e => console.error("Chyba aktualizace taxametru: ", e));
             }
         }
     }
