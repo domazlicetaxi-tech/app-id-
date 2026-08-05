@@ -2756,71 +2756,72 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
     }
 
    function pauseFare() {
-        releaseWakeLock(); 
-        if (taxiWatchId) { navigator.geolocation.clearWatch(taxiWatchId); taxiWatchId = null; } 
-        if (taxiWaitInterval) { clearInterval(taxiWaitInterval); taxiWaitInterval = null; } 
-        document.getElementById('taxi-controls-running').style.display = 'none';
-        document.getElementById('taxi-controls-paused').style.display = 'flex';
+    releaseWakeLock(); 
+    if (taxiWatchId) { navigator.geolocation.clearWatch(taxiWatchId); taxiWatchId = null; } 
+    if (taxiWaitInterval) { clearInterval(taxiWaitInterval); taxiWaitInterval = null; } 
+    document.getElementById('taxi-controls-running').style.display = 'none';
+    document.getElementById('taxi-controls-paused').style.display = 'flex';
 
-        taxiEndLatLng = taxiLastPosition;
+    taxiEndLatLng = taxiLastPosition;
 
-        // Průběžný zápis dat do databáze, ale NEUKONČOVAT objednávku!
-        if (db) {
-            const total = taxiBaseFare + (taxiDistanceKm * taxiCurrentRate) + taxiWaitCost;
+    // ZDE JE HLAVNÍ ZMĚNA: Okamžitý zápis do historie jako DOKONČENO
+    if (db) {
+        const total = taxiBaseFare + (taxiDistanceKm * taxiCurrentRate) + taxiWaitCost;
 
-            if (activeOrderId) {
-                // A) Aplikace - jen uložíme aktuální stav bez změny na "Dokončeno"
-                db.collection("taxi_orders").doc(activeOrderId).update({
-                    price: total.toFixed(2),
-                    distance: taxiDistanceKm.toFixed(2),
-                    waitCost: taxiWaitCost,
-                    waitSeconds: taxiWaitSeconds,
-                    routeTrail: taxiRouteTrail.map(pt => ({lat: pt.lat, lng: pt.lng})),
-                    dropoffLat: taxiEndLatLng ? taxiEndLatLng.lat : null,
-                    dropoffLng: taxiEndLatLng ? taxiEndLatLng.lng : null
-                }).catch(e => console.error("Chyba uložení do app objednávky: ", e));
-                
+        if (activeOrderId) {
+            // A) Zákazník z klientské aplikace
+            db.collection("taxi_orders").doc(activeOrderId).update({
+                status: "Dokončeno", // <-- Definitivní ukončení jízdy
+                price: total.toFixed(2),
+                distance: taxiDistanceKm.toFixed(2),
+                waitCost: taxiWaitCost,
+                waitSeconds: taxiWaitSeconds,
+                routeTrail: taxiRouteTrail.map(pt => ({lat: pt.lat, lng: pt.lng})),
+                dropoffLat: taxiEndLatLng ? taxiEndLatLng.lat : null,
+                dropoffLng: taxiEndLatLng ? taxiEndLatLng.lng : null
+            }).then(() => {
+                activeOrderId = null; // Vyčistíme paměť, zakázka je zcela uzavřena
+            }).catch(e => console.error("Chyba uložení do app objednávky: ", e));
+            
+        } else {
+            // B) Zákazník z ulice
+            const dName = localStorage.getItem('taxi_green_driver_name') || "Neznámý řidič";
+            const dModel = localStorage.getItem('taxi_green_vehicle_model') || "-";
+            const dPlate = localStorage.getItem('taxi_green_vehicle_plate') || "-";
+
+            let tText = document.getElementById('taxi-display-target').innerText;
+            if (!tText || tText === "Nezadáno") tText = "Dle taxametru (Z ulice)";
+
+            let orderData = {
+                status: "Dokončeno", // <-- Definitivní ukončení jízdy
+                customerName: "Zákazník z ulice (Taxametr)",
+                pickup: "Nástup z ulice",
+                dropoff: tText,
+                driverName: dName,
+                driverCar: dModel,
+                driverSpz: dPlate,
+                price: total.toFixed(2),
+                distance: taxiDistanceKm.toFixed(2),
+                waitCost: taxiWaitCost,
+                waitSeconds: taxiWaitSeconds,
+                routeTrail: taxiRouteTrail.map(pt => ({lat: pt.lat, lng: pt.lng})),
+                pickupLat: taxiStartLatLng ? taxiStartLatLng.lat : null,
+                pickupLng: taxiStartLatLng ? taxiStartLatLng.lng : null,
+                dropoffLat: taxiEndLatLng ? taxiEndLatLng.lat : null,
+                dropoffLng: taxiEndLatLng ? taxiEndLatLng.lng : null,
+                date: firebase.firestore.FieldValue.serverTimestamp(),
+                time: new Date().toLocaleTimeString('cs-CZ')
+            };
+
+            if (!currentTaximeterOrderId) {
+                db.collection("taxi_orders").add(orderData).catch(e => console.error("Chyba uložení taxametru: ", e));
             } else {
-                // B) Z ulice - založíme nebo updatujeme záznam, ale status zůstává "Zákazník ve voze"
-                const dName = localStorage.getItem('taxi_green_driver_name') || "Neznámý řidič";
-                const dModel = localStorage.getItem('taxi_green_vehicle_model') || "-";
-                const dPlate = localStorage.getItem('taxi_green_vehicle_plate') || "-";
-
-                let tText = document.getElementById('taxi-display-target').innerText;
-                if (!tText || tText === "Nezadáno") tText = "Dle taxametru (Z ulice)";
-
-                let orderData = {
-                    status: "Zákazník ve voze", // Zatím neukončeno
-                    customerName: "Zákazník z ulice (Taxametr)",
-                    pickup: "Nástup z ulice",
-                    dropoff: tText,
-                    driverName: dName,
-                    driverCar: dModel,
-                    driverSpz: dPlate,
-                    price: total.toFixed(2),
-                    distance: taxiDistanceKm.toFixed(2),
-                    waitCost: taxiWaitCost,
-                    waitSeconds: taxiWaitSeconds,
-                    routeTrail: taxiRouteTrail.map(pt => ({lat: pt.lat, lng: pt.lng})),
-                    pickupLat: taxiStartLatLng ? taxiStartLatLng.lat : null,
-                    pickupLng: taxiStartLatLng ? taxiStartLatLng.lng : null,
-                    dropoffLat: taxiEndLatLng ? taxiEndLatLng.lat : null,
-                    dropoffLng: taxiEndLatLng ? taxiEndLatLng.lng : null,
-                    date: firebase.firestore.FieldValue.serverTimestamp(),
-                    time: new Date().toLocaleTimeString('cs-CZ')
-                };
-
-                if (!currentTaximeterOrderId) {
-                    db.collection("taxi_orders").add(orderData).then(docRef => {
-                        currentTaximeterOrderId = docRef.id;
-                    }).catch(e => console.error("Chyba uložení taxametru: ", e));
-                } else {
-                    db.collection("taxi_orders").doc(currentTaximeterOrderId).update(orderData)
-                      .catch(e => console.error("Chyba aktualizace taxametru: ", e));
-                }
+                db.collection("taxi_orders").doc(currentTaximeterOrderId).update(orderData).catch(e => console.error("Chyba aktualizace taxametru: ", e));
+                currentTaximeterOrderId = null; // Vyčistíme paměť
             }
         }
     }
+}
 
     function resumeFare() {
         requestWakeLock(); 
