@@ -2146,7 +2146,11 @@ if (!isUserInteracting && !isMapPicking && routingControls.length === 0 && !docu
         const actionBtns = document.getElementById('driver-action-buttons');
         const handoffBtn = document.getElementById('btn-handoff-order');
 
-        const myFirstName = localStorage.getItem('taxi_green_driver_firstname');
+        let myFirstName = localStorage.getItem('taxi_green_driver_firstname');
+        if (!myFirstName) { 
+             let fullName = localStorage.getItem('taxi_green_driver_name') || "";
+             myFirstName = fullName.split(' ')[0] || "Řidič"; 
+        }
         let isActiveStatus = ['Potvrzeno', 'Přistaveno', 'Už jdu', 'Zákazník ve voze', 'Zákazník nastoupil'].includes(currentEditingOrder.status);
 
         if (currentEditingOrder.status === 'Nová') { 
@@ -2595,7 +2599,11 @@ let iconRotation = Math.max(-25, Math.min(25, diff));
         container.querySelectorAll('.order-card').forEach(el => el.remove());
         if (pendingOrders.length === 0) { noMsg.style.display = 'block'; return; } noMsg.style.display = 'none';
         
-        const myFirstName = localStorage.getItem('taxi_green_driver_firstname');
+        let myFirstName = localStorage.getItem('taxi_green_driver_firstname');
+        if (!myFirstName) { 
+             let fullName = localStorage.getItem('taxi_green_driver_name') || "";
+             myFirstName = fullName.split(' ')[0] || "Řidič"; 
+        }
 
         pendingOrders.forEach(ord => {
             let cardBg = '#fee2e2'; let borderCol = '#ef4444'; let statusLabel = 'ČEKÁ V POŘADÍ';
