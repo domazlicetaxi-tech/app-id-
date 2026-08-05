@@ -3224,6 +3224,14 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
                 // CÍL JE VYPLNĚNÝ -> Zobrazíme navigaci, schováme ruční ukončení
                 if (btnNavDropoff) btnNavDropoff.style.display = 'block';
                 if (btnFinish) btnFinish.style.display = 'none';
+
+                // NOVÉ: Jakmile se zadá cíl, změníme stav na "Zákazník ve voze"
+                if (currentEditingOrder && currentEditingOrder.status === 'Zákazník nastoupil') {
+                    currentEditingOrder.status = 'Zákazník ve voze'; // Lokální změna pro aplikaci
+                    if (db && activeOrderId) {
+                        db.collection("taxi_orders").doc(activeOrderId).update({ status: "Zákazník ve voze" });
+                    }
+                }
             } else {
                 // CÍL CHYBÍ -> SCHOVÁME NAVIGACI, ZOBRAZÍME DOKONČIT JÍZDU
                 if (btnNavDropoff) btnNavDropoff.style.display = 'none';
