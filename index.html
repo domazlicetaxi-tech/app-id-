@@ -3255,14 +3255,22 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
     ));
     
     let dropoffVal = document.getElementById('dropoff').value.trim();
+    
+    // Detekce prázdného nebo zástupného cíle
+    let isDropoffEmpty = (
+        dropoffVal === "" || 
+        dropoffVal.toLowerCase() === "nezadáno" || 
+        dropoffVal.toLowerCase().includes("upřesní")
+    );
+
     let btnFinish = document.getElementById('btn-finish-ride');
     let btnNavDropoff = document.getElementById('btn-nav-dropoff');
 
     if (isCustomerActive) {
         document.getElementById('btn-calc').style.display = 'none';
 
-        if (dropoffVal !== "" && dropoffVal.toLowerCase() !== "nezadáno") {
-            // MÁME CÍL -> Zobrazíme modré tlačítko pro navigaci
+        if (!isDropoffEmpty) {
+            // MÁME REÁLNÝ CÍL -> Zobrazíme modré tlačítko pro navigaci
             if (btnNavDropoff) {
                 btnNavDropoff.style.display = 'block';
                 btnNavDropoff.innerHTML = "📍 Navigovat k cíli";
@@ -3276,7 +3284,7 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
                 }
             }
         } else {
-            // CÍL CHYBÍ -> Schováme navigaci, zobrazíme červené Dokončit jízdu
+            // CÍL CHYBÍ (nebo je tam "upřesní...") -> Schováme navigaci, zobrazíme Dokončit jízdu
             if (btnNavDropoff) btnNavDropoff.style.display = 'none';
             if (btnFinish) {
                 btnFinish.style.display = 'block';
@@ -3284,6 +3292,7 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
             }
         }
     } else {
+        // Výchozí stav (před nabráním zákazníka)
         document.getElementById('btn-calc').style.display = 'block';
         if (btnNavDropoff) btnNavDropoff.style.display = 'none';
         if (btnFinish) btnFinish.style.display = 'none';
