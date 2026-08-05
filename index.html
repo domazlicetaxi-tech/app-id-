@@ -483,12 +483,6 @@ body.dark-mode .order-card .order-card-detail {
     bottom: auto !important;
     right: auto !important;
 }
-
-/* V režimu Taxametru panel posuneme výrazně níž, PŘÍMO na plochu mapy */
-body.taxameter-active #nav-instruction-box {
-    top: 400px !important; 
-}
-
 #nav-icon {
     display: flex;
     align-items: center;
@@ -3161,6 +3155,8 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
     let map = L.map('map', { rotate: true, touchZoom: true, zoomControl: false }).setView([49.4398, 12.9304], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
+    // PŘESUN NAŠEPTÁVAČE: Box se vloží přímo do mapy, takže se zarovná k jejímu hornímu okraji
+document.getElementById('map').appendChild(document.getElementById('nav-instruction-box'));
 // --- ZDE ZAČÍNÁ NOVÝ KÓD RYCHLOMĚRU ---
     const SpeedControl = L.Control.extend({
         options: { position: 'topleft' },
