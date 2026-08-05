@@ -3659,12 +3659,11 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
             window.adminHistoryOrdersMap = {};
             
             snapshot.forEach(doc => { 
-                let data = doc.data();
+                    let data = doc.data();
                     let order = {id: doc.id, ...data};
                     allAdminHistoryOrders.push(order); 
                     window.adminHistoryOrdersMap[doc.id] = order;
-                }
-            });
+                 });
 
             if (allAdminHistoryOrders.length === 0) { 
                 container.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px; font-style:italic;">Historie je zatím prázdná.</td></tr>'; 
