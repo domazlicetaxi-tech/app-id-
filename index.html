@@ -2753,6 +2753,9 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
                     routeTrail: taxiRouteTrail.map(pt => ({lat: pt.lat, lng: pt.lng})),
                     dropoffLat: taxiEndLatLng ? taxiEndLatLng.lat : null,
                     dropoffLng: taxiEndLatLng ? taxiEndLatLng.lng : null
+                }).then(() => {
+                    activeOrderId = null; // Vyčištění paměti po dokončení taxametrem
+                    alert("Jízda z aplikace byla taxametrem úspěšně dokončena.");
                 }).catch(e => console.error("Chyba uložení do app objednávky: ", e));
                 
             } else {
@@ -3363,10 +3366,13 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         if (activeOrderId && db) {
             const orderRef = db.collection("taxi_orders").doc(activeOrderId);
             orderRef.get().then(doc => {
-                // Pokud řidič zastaví navigaci ve chvíli, kdy už zákazník nastoupil, jízda se rovnou bere jako vyřízená (Dokončeno).
+                // Pokud řidič zastaví navigaci a zákazník už jel ve voze, jízda je Dokončená
                 if (doc.exists && doc.data().status === "Zákazník nastoupil") {
                     orderRef.update({ status: "Dokončeno", driverLat: null, driverLng: null, eta: null, targetArrivalTime: null });
+                    activeOrderId = null; // Vyčistí paměť aplikace pro další jízdu
+                    alert("Jízda byla úspěšně dokončena.");
                 } else {
+                    // Pokud jen ruší navigaci cestou k zákazníkovi
                     orderRef.update({ driverLat: null, driverLng: null, eta: null, targetArrivalTime: null });
                 }
             });
