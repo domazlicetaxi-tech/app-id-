@@ -3049,6 +3049,27 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
 
     // --- TISK Z TAXAMETRU ---
    function printReceipt() {
+       // NOVÉ: Definitivní ukončení jízdy v DB při stisku tlačítka Tisk
+    if (db) {
+        const total = taxiBaseFare + (taxiDistanceKm * taxiCurrentRate) + taxiWaitCost;
+        if (activeOrderId) {
+            db.collection("taxi_orders").doc(activeOrderId).update({
+                status: "Dokončeno",
+                price: total.toFixed(2),
+                distance: taxiDistanceKm.toFixed(2),
+                waitCost: taxiWaitCost,
+                waitSeconds: taxiWaitSeconds
+            }).catch(e => console.error(e));
+        } else if (currentTaximeterOrderId) {
+            db.collection("taxi_orders").doc(currentTaximeterOrderId).update({
+                status: "Dokončeno",
+                price: total.toFixed(2),
+                distance: taxiDistanceKm.toFixed(2),
+                waitCost: taxiWaitCost,
+                waitSeconds: taxiWaitSeconds
+            }).catch(e => console.error(e));
+        }
+    }
         document.getElementById('receipt-main-title').innerText = "ÚČTENKA TAXI GREEN";
         document.getElementById('receipt-datetime-box').style.display = 'none';
         const dName = localStorage.getItem('taxi_green_driver_name') || "Neznámý řidič";
