@@ -2433,11 +2433,17 @@ if (!isUserInteracting && !isMapPicking && routingControls.length === 0 && !docu
 
     let dropoffVal = document.getElementById('dropoff').value.trim();
     
-    // Ošetření prázdného cíle: Navigaci spustí jen, když je cíl skutečně vyplněn
-    if (dropoffVal !== "" && dropoffVal.toLowerCase() !== "nezadáno") {
+    // Detekce, zda je cíl prázdný, nebo obsahuje zástupný text z aplikace
+    let isDropoffEmpty = (
+        dropoffVal === "" || 
+        dropoffVal.toLowerCase() === "nezadáno" || 
+        dropoffVal.toLowerCase().includes("upřesní")
+    );
+    
+    if (!isDropoffEmpty) {
         startNavigationToDropoff(); 
     } else {
-        // Cíl neexistuje -> Vynutíme prázdné pole a zobrazíme "Dokončit jízdu"
+        // Cíl neexistuje -> Vynutíme prázdné pole (vymažeme zástupný text) a ukážeme "Dokončit jízdu"
         document.getElementById('dropoff').value = ""; 
         resetActionButtons();
     }
