@@ -2756,14 +2756,13 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
 
         taxiEndLatLng = taxiLastPosition;
 
-        // Okamžitý zápis jízdy do databáze (Historie jízd)
+        // Průběžný zápis dat do databáze, ale NEUKONČOVAT objednávku!
         if (db) {
             const total = taxiBaseFare + (taxiDistanceKm * taxiCurrentRate) + taxiWaitCost;
 
             if (activeOrderId) {
-                // A) Řidič veze konkrétní objednávku z aplikace
+                // A) Aplikace - jen uložíme aktuální stav bez změny na "Dokončeno"
                 db.collection("taxi_orders").doc(activeOrderId).update({
-                    status: "Dokončeno", // Okamžitě změní stav všude v systému
                     price: total.toFixed(2),
                     distance: taxiDistanceKm.toFixed(2),
                     waitCost: taxiWaitCost,
@@ -2771,13 +2770,10 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
                     routeTrail: taxiRouteTrail.map(pt => ({lat: pt.lat, lng: pt.lng})),
                     dropoffLat: taxiEndLatLng ? taxiEndLatLng.lat : null,
                     dropoffLng: taxiEndLatLng ? taxiEndLatLng.lng : null
-                }).then(() => {
-                    activeOrderId = null; // Vyčištění paměti po dokončení taxametrem
-                    alert("Jízda z aplikace byla taxametrem úspěšně dokončena.");
                 }).catch(e => console.error("Chyba uložení do app objednávky: ", e));
                 
             } else {
-                // B) Řidič veze náhodného zákazníka z ulice (Původní logika)
+                // B) Z ulice - založíme nebo updatujeme záznam, ale status zůstává "Zákazník ve voze"
                 const dName = localStorage.getItem('taxi_green_driver_name') || "Neznámý řidič";
                 const dModel = localStorage.getItem('taxi_green_vehicle_model') || "-";
                 const dPlate = localStorage.getItem('taxi_green_vehicle_plate') || "-";
@@ -2786,7 +2782,7 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
                 if (!tText || tText === "Nezadáno") tText = "Dle taxametru (Z ulice)";
 
                 let orderData = {
-                    status: "Dokončeno",
+                    status: "Zákazník ve voze", // Zatím neukončeno
                     customerName: "Zákazník z ulice (Taxametr)",
                     pickup: "Nástup z ulice",
                     dropoff: tText,
