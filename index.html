@@ -3236,53 +3236,56 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
     }
 
     function resetActionButtons() {
-        document.getElementById('btn-back-to-admin').style.display = 'none';
-        document.getElementById('btn-dispatch').style.display = 'none';
-        document.getElementById('btn-stop-nav').style.display = 'none';
-        
-        // Zjištění, zda je zákazník aktivní (přistaveno, už jde nebo jede)
-        let isCustomerActive = (activeOrderId && currentEditingOrder && (
-            currentEditingOrder.status === 'Zákazník nastoupil' || 
-            currentEditingOrder.status === 'Zákazník ve voze' || 
-            currentEditingOrder.driverArrived || 
-            currentEditingOrder.status === 'Už jdu'
-        ));
-        
-        let dropoffVal = document.getElementById('dropoff').value.trim();
-        let btnFinish = document.getElementById('btn-finish-ride');
-        let btnNavDropoff = document.getElementById('btn-nav-dropoff');
+    document.getElementById('btn-back-to-admin').style.display = 'none';
+    document.getElementById('btn-dispatch').style.display = 'none';
+    document.getElementById('btn-stop-nav').style.display = 'none';
+    
+    let isCustomerActive = (activeOrderId && currentEditingOrder && (
+        currentEditingOrder.status === 'Zákazník nastoupil' || 
+        currentEditingOrder.status === 'Zákazník ve voze' || 
+        currentEditingOrder.driverArrived || 
+        currentEditingOrder.status === 'Už jdu'
+    ));
+    
+    let dropoffVal = document.getElementById('dropoff').value.trim();
+    let btnFinish = document.getElementById('btn-finish-ride');
+    let btnNavDropoff = document.getElementById('btn-nav-dropoff');
 
-        if (isCustomerActive) {
-            document.getElementById('btn-calc').style.display = 'none'; // Schováme výpočet ceny
+    if (isCustomerActive) {
+        document.getElementById('btn-calc').style.display = 'none';
 
-            if (dropoffVal !== "") {
-                // CÍL JE VYPLNĚNÝ -> Zobrazíme navigaci, schováme ruční ukončení
-                if (btnNavDropoff) btnNavDropoff.style.display = 'block';
-                if (btnFinish) btnFinish.style.display = 'none';
+        if (dropoffVal !== "" && dropoffVal.toLowerCase() !== "nezadáno") {
+            // MÁME CÍL -> Zobrazíme modré tlačítko pro navigaci
+            if (btnNavDropoff) {
+                btnNavDropoff.style.display = 'block';
+                btnNavDropoff.innerHTML = "📍 Navigovat k cíli";
+            }
+            if (btnFinish) btnFinish.style.display = 'none';
 
-                // NOVÉ: Jakmile se zadá cíl, změníme stav na "Zákazník ve voze"
-                if (currentEditingOrder && currentEditingOrder.status === 'Zákazník nastoupil') {
-                    currentEditingOrder.status = 'Zákazník ve voze'; // Lokální změna pro aplikaci
-                    if (db && activeOrderId) {
-                        db.collection("taxi_orders").doc(activeOrderId).update({ status: "Zákazník ve voze" });
-                    }
+            if (currentEditingOrder && currentEditingOrder.status === 'Zákazník nastoupil') {
+                currentEditingOrder.status = 'Zákazník ve voze';
+                if (db && activeOrderId) {
+                    db.collection("taxi_orders").doc(activeOrderId).update({ status: "Zákazník ve voze" });
                 }
-            } else {
-                // CÍL CHYBÍ -> SCHOVÁME NAVIGACI, ZOBRAZÍME DOKONČIT JÍZDU
-                if (btnNavDropoff) btnNavDropoff.style.display = 'none';
-                if (btnFinish) btnFinish.style.display = 'block';
             }
         } else {
-            // Standardní stav před nabráním zákazníka
-            document.getElementById('btn-calc').style.display = 'block';
+            // CÍL CHYBÍ -> Schováme navigaci, zobrazíme červené Dokončit jízdu
             if (btnNavDropoff) btnNavDropoff.style.display = 'none';
-            if (btnFinish) btnFinish.style.display = 'none';
-            
-            clearRoutes();
-            document.getElementById('dist-val').innerText = '0';
-            document.getElementById('price-val').innerText = '0';
+            if (btnFinish) {
+                btnFinish.style.display = 'block';
+                btnFinish.innerHTML = "🛑 Dokončit jízdu";
+            }
         }
+    } else {
+        document.getElementById('btn-calc').style.display = 'block';
+        if (btnNavDropoff) btnNavDropoff.style.display = 'none';
+        if (btnFinish) btnFinish.style.display = 'none';
+        
+        clearRoutes();
+        document.getElementById('dist-val').innerText = '0';
+        document.getElementById('price-val').innerText = '0';
     }
+}
 
   async function calculateRoute() {
         clearRoutes(); tempMarkers.clearLayers();
