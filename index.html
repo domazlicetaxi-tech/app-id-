@@ -2628,9 +2628,19 @@ let iconRotation = Math.max(-25, Math.min(25, diff));
         
         spustTaxameterRezim();
 
+        // NOVÉ: Jakmile řidič spustí taxametr, změníme stav zakázky na "Zákazník ve voze"
+        if (activeOrderId && currentEditingOrder) {
+            if (currentEditingOrder.status === 'Zákazník nastoupil' || currentEditingOrder.status === 'Potvrzeno' || currentEditingOrder.status === 'Už jdu') {
+                currentEditingOrder.status = 'Zákazník ve voze'; // Lokální přepis
+                if (db) {
+                    db.collection("taxi_orders").doc(activeOrderId).update({ status: "Zákazník ve voze" });
+                }
+            }
+        }
+
         const targetName = document.getElementById('taxi-target-input').value || "Nezadáno"; document.getElementById('taxi-display-target').innerText = targetName;
-taxiBaseFare = 20.00; taxiCurrentRate = ratePerKm; taxiDistanceKm = 0; taxiWaitSeconds = 0; taxiWaitCost = 0; taxiLastPosition = null; taxiLastMoveTime = Date.now();
-     taxiRouteTrail = []; // Vymazani stare stopy
+        taxiBaseFare = 20.00; taxiCurrentRate = ratePerKm; taxiDistanceKm = 0; taxiWaitSeconds = 0; taxiWaitCost = 0; taxiLastPosition = null; taxiLastMoveTime = Date.now();
+        taxiRouteTrail = []; // Vymazani stare stopy
         
         currentTaximeterOrderId = null; taxiStartLatLng = null; taxiEndLatLng = null;
         navigator.geolocation.getCurrentPosition(pos => { taxiStartLatLng = L.latLng(pos.coords.latitude, pos.coords.longitude); }, () => {}, { enableHighAccuracy: true });
