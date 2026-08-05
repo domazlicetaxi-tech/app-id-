@@ -3207,23 +3207,34 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         document.getElementById('btn-dispatch').style.display = 'none';
         document.getElementById('btn-stop-nav').style.display = 'none';
         
-        let isCustomerInCar = (activeOrderId && currentEditingOrder && (currentEditingOrder.status === 'Zákazník nastoupil' || currentEditingOrder.status === 'Zákazník ve voze' || currentEditingOrder.driverArrived || currentEditingOrder.status === 'Už jdu'));
+        // Zjištění, zda je zákazník aktivní (přistaveno, už jde nebo jede)
+        let isCustomerActive = (activeOrderId && currentEditingOrder && (
+            currentEditingOrder.status === 'Zákazník nastoupil' || 
+            currentEditingOrder.status === 'Zákazník ve voze' || 
+            currentEditingOrder.driverArrived || 
+            currentEditingOrder.status === 'Už jdu'
+        ));
+        
         let dropoffVal = document.getElementById('dropoff').value.trim();
         let btnFinish = document.getElementById('btn-finish-ride');
+        let btnNavDropoff = document.getElementById('btn-nav-dropoff');
 
-        if (isCustomerInCar) {
-            document.getElementById('btn-calc').style.display = 'none'; 
-            
+        if (isCustomerActive) {
+            document.getElementById('btn-calc').style.display = 'none'; // Schováme výpočet ceny
+
             if (dropoffVal !== "") {
-                document.getElementById('btn-nav-dropoff').style.display = 'block';
+                // CÍL JE VYPLNĚNÝ -> Zobrazíme navigaci, schováme ruční ukončení
+                if (btnNavDropoff) btnNavDropoff.style.display = 'block';
                 if (btnFinish) btnFinish.style.display = 'none';
             } else {
-                document.getElementById('btn-nav-dropoff').style.display = 'none';
+                // CÍL CHYBÍ -> SCHOVÁME NAVIGACI, ZOBRAZÍME DOKONČIT JÍZDU
+                if (btnNavDropoff) btnNavDropoff.style.display = 'none';
                 if (btnFinish) btnFinish.style.display = 'block';
             }
         } else {
+            // Standardní stav před nabráním zákazníka
             document.getElementById('btn-calc').style.display = 'block';
-            document.getElementById('btn-nav-dropoff').style.display = 'none';
+            if (btnNavDropoff) btnNavDropoff.style.display = 'none';
             if (btnFinish) btnFinish.style.display = 'none';
             
             clearRoutes();
