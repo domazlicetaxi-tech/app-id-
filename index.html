@@ -1131,10 +1131,23 @@ body.taxameter-active #nav-instruction-box {
 
     // Zmenšené zelené autíčko, které vypadá jako taxi s jasně definovanou přídí (světlomety)
     // Funkce pro získání obarvené ikony vlastního vozu (bez zobrazení vlastního jména)
+    // Zmenšené zelené (nebo barevné) autíčko, které vypadá jako taxi
     function getMyCarIcon() {
         const vIndex = localStorage.getItem('taxi_green_vehicle_index') || "0";
-        // Využije funkci pro získání správné barvy
-        const color = getCarColorByIndex(vIndex);
+        const myName = (localStorage.getItem('taxi_green_driver_name') || "").toLowerCase().trim();
+        
+        // Získáme standardní barvu vozu z tvé funkce
+        let color = getCarColorByIndex(vIndex);
+
+        // Zkontrolujeme, zda jde o admina/dispečink
+        const isAdmin = ["jaroslav musil", "admin", "dispatching", "dispecink", "dispečink"].includes(myName);
+        
+        // Zkontrolujeme, zda auto MÁ definovanou vlastní barvu (auta 1 až 10). 
+        // Pokud nemá (nebo je to rovnou 11), aplikujeme pro admina zelenou místo výchozí modré.
+        const idx = parseInt(vIndex);
+        if (isAdmin && (idx > 10 || isNaN(idx))) {
+            color = "#00cc00"; // Výrazně zelená
+        }
 
         return L.divIcon({
             html: `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
