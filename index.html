@@ -2421,7 +2421,7 @@ if (!isUserInteracting && !isMapPicking && routingControls.length === 0 && !docu
         }
     }
 
-    // --- NOVÁ FUNKCE KDYŽ ZÁKAZNÍK KLIKNE "UŽ JDU" ---
+    // --- FUNKCE PO POTVRZENÍ NASTOUPENÍ ZÁKAZNÍKA ---
     function startRideAfterUzJdu() {
         stopAlarm();
         document.getElementById('btn-customer-on-way').style.display = 'none';
@@ -2432,14 +2432,12 @@ if (!isUserInteracting && !isMapPicking && routingControls.length === 0 && !docu
         }
 
         let dropoffVal = document.getElementById('dropoff').value.trim();
-        let btnFinish = document.getElementById('btn-finish-ride');
         
-        if (dropoffVal) {
-            document.getElementById('btn-nav-dropoff').style.display = 'block';
-            if (btnFinish) btnFinish.style.display = 'none';
+        if (dropoffVal !== "") {
+            // Pokud cíl existuje, zapne navigaci do cíle
             startNavigationToDropoff(); 
         } else {
-            alert("Zákazník nastoupil bez zadaného cíle.\n\nMůžete spustit Taxametr, ručně dopsat cíl pro navigaci, nebo po příjezdu kliknout na 'Dokončit jízdu'.");
+            // Pokud cíl NEEXISTUJE, přepne tlačítka -> schová navigaci a ukáže 'Dokončit jízdu'
             resetActionButtons();
         }
     }
