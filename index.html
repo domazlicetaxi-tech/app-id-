@@ -2839,18 +2839,46 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
     }
 
     function resetFare() {
+        // NOVÉ: Tady přidáme definitivní ukončení jízdy do databáze (Historie)
+        if (db) {
+            const total = taxiBaseFare + (taxiDistanceKm * taxiCurrentRate) + taxiWaitCost;
+            if (activeOrderId) {
+                db.collection("taxi_orders").doc(activeOrderId).update({
+                    status: "Dokončeno",
+                    price: total.toFixed(2),
+                    distance: taxiDistanceKm.toFixed(2),
+                    waitCost: taxiWaitCost,
+                    waitSeconds: taxiWaitSeconds
+                }).then(() => {
+                    activeOrderId = null; // Vyčistíme paměť
+                }).catch(e => console.error(e));
+            } else if (currentTaximeterOrderId) {
+                db.collection("taxi_orders").doc(currentTaximeterOrderId).update({
+                    status: "Dokončeno",
+                    price: total.toFixed(2),
+                    distance: taxiDistanceKm.toFixed(2),
+                    waitCost: taxiWaitCost,
+                    waitSeconds: taxiWaitSeconds
+                }).catch(e => console.error(e));
+                currentTaximeterOrderId = null; // Vyčistíme paměť
+            }
+        }
+
         stopTaxameterRezim(); // Vrátí UI do normálu po kliku na Nové měření
         releaseWakeLock();
         if (taxiWatchId) { navigator.geolocation.clearWatch(taxiWatchId); taxiWatchId = null; } 
         if (taxiWaitInterval) { clearInterval(taxiWaitInterval); taxiWaitInterval = null; } 
         
         taxiBaseFare = 20; taxiDistanceKm = 0; taxiWaitSeconds = 0; taxiWaitCost = 0; taxiLastPosition = null;
-     taxiRouteTrail = []; // Vymazani stare stopy
+        taxiRouteTrail = []; // Vymazani stare stopy
         document.getElementById('taxi-target-input').value = ""; document.getElementById('taxi-display-target').innerText = "Nezadáno"; coordsData.dropoff = null; clearRoutes();
 
         hideNavigationInstructionsUI(); // Okamžitě schová plovoucí navigační box
         document.getElementById('taxi-setup').style.display = 'block';
         document.getElementById('taxi-running').style.display = 'none';
+
+        // Resetování tlačítek v dispečinku (kdyby se řidič vrátil do hlavního okna)
+        resetActionButtons();
     }
 
   // --- FUNKCE PRO VYKRESLENÍ MAPY NA ÚČTENCE ---
