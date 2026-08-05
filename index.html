@@ -2426,12 +2426,21 @@ if (!isUserInteracting && !isMapPicking && routingControls.length === 0 && !docu
     stopAlarm();
     document.getElementById('btn-customer-on-way').style.display = 'none';
 
+    // 1. Změna stavu v databázi OKAMŽITĚ na "Zákazník ve voze"
     if (activeOrderId && db) {
-        db.collection("taxi_orders").doc(activeOrderId).update({ status: "Zákazník nastoupil" });
-        if (currentEditingOrder) currentEditingOrder.status = "Zákazník nastoupil"; 
+        db.collection("taxi_orders").doc(activeOrderId).update({ status: "Zákazník ve voze" });
+        if (currentEditingOrder) currentEditingOrder.status = "Zákazník ve voze"; 
     }
 
+    // 2. Vymazání špendlíku zákazníka (místo nástupu) z mapy
+    tempMarkers.clearLayers();
+    
     let dropoffVal = document.getElementById('dropoff').value.trim();
+    
+    // Pokud je zadán cíl cesty, vrátíme na mapu pouze špendlík cíle (zákazník už je u tebe v autě)
+    if (coordsData.dropoff) {
+        L.marker(coordsData.dropoff, {icon: iconDropoff}).addTo(tempMarkers);
+    }
     
     // Detekce, zda je cíl prázdný, nebo obsahuje zástupný text z aplikace
     let isDropoffEmpty = (
