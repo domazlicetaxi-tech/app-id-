@@ -3207,7 +3207,7 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         document.getElementById('btn-dispatch').style.display = 'none';
         document.getElementById('btn-stop-nav').style.display = 'none';
         
-        let isCustomerInCar = (activeOrderId && currentEditingOrder && (currentEditingOrder.status === 'Zákazník nastoupil' || currentEditingOrder.status === 'Zákazník ve voze'));
+        let isCustomerInCar = (activeOrderId && currentEditingOrder && (currentEditingOrder.status === 'Zákazník nastoupil' || currentEditingOrder.status === 'Zákazník ve voze' || currentEditingOrder.driverArrived || currentEditingOrder.status === 'Už jdu'));
         let dropoffVal = document.getElementById('dropoff').value.trim();
         let btnFinish = document.getElementById('btn-finish-ride');
 
