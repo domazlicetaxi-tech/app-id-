@@ -1180,17 +1180,31 @@ body.taxameter-active #nav-instruction-box {
     let spokenMilestones = { m300: false, m100: false, m30: false };
 
     // Výpočet stabilizovaného a plynulého směru jízdy pomocí klouzavého průměru (Sygic styl)
-    function getSmoothedBearing(newBearing) {
-        bearingHistory.push(newBearing);
-        if (bearingHistory.length > 5) bearingHistory.shift(); 
-        let sinSum = 0, cosSum = 0;
-        for (let b of bearingHistory) {
-            let rad = b * Math.PI / 180;
-            sinSum += Math.sin(rad);
-            cosSum += Math.cos(rad);
+    // Výpočet stabilizovaného a plynulého směru jízdy pomocí klouzavého průměru (Sygic styl)
+function getSmoothedBearing(newBearing) {
+    // 1. DETEKCE ZATÁČKY: Pokud je změna směru náhlá (více než 35 stupňů),
+    // smažeme historii, aby mapa nečekala a otočila se okamžitě za čumákem auta.
+    if (bearingHistory.length > 0) {
+        let lastB = bearingHistory[bearingHistory.length - 1];
+        let diff = Math.abs((newBearing - lastB + 540) % 360 - 180);
+        if (diff > 35) {
+            bearingHistory = []; 
         }
-        return (Math.atan2(sinSum, cosSum) * 180 / Math.PI + 360) % 360;
     }
+
+    bearingHistory.push(newBearing);
+    
+    // 2. RYCHLEJŠÍ REAKCE: Snížení paměti z 5 na 3 body
+    if (bearingHistory.length > 3) bearingHistory.shift(); 
+    
+    let sinSum = 0, cosSum = 0;
+    for (let b of bearingHistory) {
+        let rad = b * Math.PI / 180;
+        sinSum += Math.sin(rad);
+        cosSum += Math.cos(rad);
+    }
+    return (Math.atan2(sinSum, cosSum) * 180 / Math.PI + 360) % 360;
+}
 
     // Překlad příkazů do češtiny pro vizuální a mluvené pokyny
     function translateInstruction(instr) {
