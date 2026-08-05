@@ -711,7 +711,7 @@ body.taxameter-active #nav-instruction-box {
 
                     <button id="btn-customer-on-way" style="display: none; width: 100%; padding: 14px; background: var(--green-primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 900; font-size: 15px; text-transform: uppercase; margin-bottom: 10px; box-shadow: 0 4px 10px rgba(21,128,61,0.4); animation: pulse 1.2s infinite;" onclick="startRideAfterUzJdu()">🏃 Zákazník nastoupil / Odstartovat</button>
                     <!-- --------------------------------------- -->
-
+                    <button id="btn-finish-ride" style="display: none; width: 100%; padding: 14px; background: var(--green-primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 900; font-size: 15px; text-transform: uppercase; margin-bottom: 10px; box-shadow: 0 4px 6px rgba(21,128,61,0.3);" onclick="finishOrder()">✅ Dokončit jízdu</button>
                     <button id="btn-nav-dropoff" class="btn-nav-dropoff" onclick="startNavigationToDropoff()">📍 Navigovat do místa vykládky</button>
 
                     <div id="results-box">
@@ -2380,10 +2380,18 @@ if (!isUserInteracting && !isMapPicking && routingControls.length === 0 && !docu
         if(!currentEditingOrder) return;
         if(!confirm("Opravdu chcete tuto jízdu označit jako DOKONČENOU?")) return;
         
+        // Zapsání ceny na 0 Kč, pokud tam zatím žádná není
+        let finalPrice = currentEditingOrder.price || currentEditingOrder.calculatedPrice || 0;
+
         db.collection("taxi_orders").doc(currentEditingOrder.id).update({
-            status: "Dokončeno"
+            status: "Dokončeno",
+            price: finalPrice
         }).then(() => {
             alert("Jízda byla úspěšně dokončena. Nyní se přesune do historie.");
+            
+            let btnFinish = document.getElementById('btn-finish-ride');
+            if (btnFinish) btnFinish.style.display = 'none';
+
             if (activeOrderId === currentEditingOrder.id) {
                 stopNavigation();
                 activeOrderId = null;
@@ -2415,21 +2423,23 @@ if (!isUserInteracting && !isMapPicking && routingControls.length === 0 && !docu
 
     // --- NOVÁ FUNKCE KDYŽ ZÁKAZNÍK KLIKNE "UŽ JDU" ---
     function startRideAfterUzJdu() {
-    stopAlarm();
-    document.getElementById('btn-customer-on-way').style.display = 'none';
+        stopAlarm();
+        document.getElementById('btn-customer-on-way').style.display = 'none';
 
-    if (activeOrderId && db) {
-        // OPRAVA: Sjednoceno s očekáváním zákaznické aplikace Zweb
-        db.collection("taxi_orders").doc(activeOrderId).update({ status: "Zákazník nastoupil" });
-    }
-    // ...
+        if (activeOrderId && db) {
+            db.collection("taxi_orders").doc(activeOrderId).update({ status: "Zákazník nastoupil" });
+            if (currentEditingOrder) currentEditingOrder.status = "Zákazník nastoupil"; 
+        }
 
-        let dropoffVal = document.getElementById('dropoff').value;
+        let dropoffVal = document.getElementById('dropoff').value.trim();
+        let btnFinish = document.getElementById('btn-finish-ride');
+        
         if (dropoffVal) {
             document.getElementById('btn-nav-dropoff').style.display = 'block';
+            if (btnFinish) btnFinish.style.display = 'none';
             startNavigationToDropoff(); 
         } else {
-            alert("Zákazník nastoupil. Nemáte zadaný cíl cesty, můžete spustit Taxametr ručně.");
+            alert("Zákazník nastoupil bez zadaného cíle.\n\nMůžete spustit Taxametr, ručně dopsat cíl pro navigaci, nebo po příjezdu kliknout na 'Dokončit jízdu'.");
             resetActionButtons();
         }
     }
@@ -3194,13 +3204,32 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
 
     function resetActionButtons() {
         document.getElementById('btn-back-to-admin').style.display = 'none';
-        document.getElementById('btn-calc').style.display = 'block';
         document.getElementById('btn-dispatch').style.display = 'none';
         document.getElementById('btn-stop-nav').style.display = 'none';
-        document.getElementById('btn-nav-dropoff').style.display = 'none';
-        clearRoutes();
-        document.getElementById('dist-val').innerText = '0';
-        document.getElementById('price-val').innerText = '0';
+        
+        let isCustomerInCar = (activeOrderId && currentEditingOrder && (currentEditingOrder.status === 'Zákazník nastoupil' || currentEditingOrder.status === 'Zákazník ve voze'));
+        let dropoffVal = document.getElementById('dropoff').value.trim();
+        let btnFinish = document.getElementById('btn-finish-ride');
+
+        if (isCustomerInCar) {
+            document.getElementById('btn-calc').style.display = 'none'; 
+            
+            if (dropoffVal !== "") {
+                document.getElementById('btn-nav-dropoff').style.display = 'block';
+                if (btnFinish) btnFinish.style.display = 'none';
+            } else {
+                document.getElementById('btn-nav-dropoff').style.display = 'none';
+                if (btnFinish) btnFinish.style.display = 'block';
+            }
+        } else {
+            document.getElementById('btn-calc').style.display = 'block';
+            document.getElementById('btn-nav-dropoff').style.display = 'none';
+            if (btnFinish) btnFinish.style.display = 'none';
+            
+            clearRoutes();
+            document.getElementById('dist-val').innerText = '0';
+            document.getElementById('price-val').innerText = '0';
+        }
     }
 
   async function calculateRoute() {
