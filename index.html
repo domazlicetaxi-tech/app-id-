@@ -3660,7 +3660,6 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
             
             snapshot.forEach(doc => { 
                 let data = doc.data();
-                if (!data.status || data.status === "Dokončeno" || data.status === "Zrušeno" || data.status === "Zákazník nastoupil") {
                     let order = {id: doc.id, ...data};
                     allAdminHistoryOrders.push(order); 
                     window.adminHistoryOrdersMap[doc.id] = order;
@@ -3737,12 +3736,25 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         }
 
         orders.forEach(data => {
-            let statusColor = 'var(--text-muted)';
-            let statusBadge = data.status || 'Neznámý stav';
-            if (data.status === 'Dokončeno') statusColor = 'var(--green-light)';
-            if (data.status === 'Zrušeno') statusColor = 'var(--danger-red)';
-            if (data.status === 'Zákazník nastoupil') { statusColor = 'var(--driver-blue)'; statusBadge = 'Neukončeno'; }
-
+ let statusColor = '#94a3b8'; // Výchozí šedá
+        let statusBadge = data.status || 'Neznámý stav';
+        
+        // Zelená pro dokončené
+        if (data.status === 'Dokončeno') {
+            statusColor = 'var(--green-light)';
+        } 
+        // Červená pro zrušené
+        else if (data.status === 'Zrušeno') {
+            statusColor = 'var(--danger-red)';
+        } 
+        // Modrá pro zákazníka v autě
+        else if (data.status === 'Zákazník nastoupil' || data.status === 'Zákazník ve voze') { 
+            statusColor = 'var(--driver-blue)'; 
+        }
+        // Žlutá (oranžová) pro jízdy na cestě k zákazníkovi
+        else if (data.status === 'Potvrzeno' || data.status === 'Už jdu' || data.status === 'Nová') {
+            statusColor = 'var(--warning-amber)';
+        }
             const calcPrice = data.price || data.calculatedPrice || data.total || '-';
             
            let orderDate = null;
