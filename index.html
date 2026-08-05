@@ -1267,14 +1267,14 @@ body.taxameter-active #nav-instruction-box {
                 box.style.setProperty('display', 'flex', 'important');
                 
                 document.getElementById('nav-text').innerHTML = `Za ${roundedDist} m: <b>${directionText}</b>`;
-                document.getElementById('nav-icon').innerText = getInstructionIcon(nextInstr.type);
+                document.getElementById('nav-icon').innerHTML = getInstructionIcon(nextInstr.type);
                 
                 triggerVoiceAnnouncement(directionText, roundedDist);
             }
         } else if (box) {
             box.style.setProperty('display', 'flex', 'important');
             document.getElementById('nav-text').innerText = "Blížíte se k cíli";
-            document.getElementById('nav-icon').innerText = "🏁";
+            document.getElementById('nav-icon').innerHTML = "🏁";
         }
     }
 
