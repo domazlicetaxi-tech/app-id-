@@ -3345,7 +3345,17 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         const carIconEl = document.getElementById('driver-car-icon');
         if (carIconEl) { carIconEl.style.transform = `rotate(0deg)`; }
 
-        if (activeOrderId && db) { db.collection("taxi_orders").doc(activeOrderId).update({ driverLat: null, driverLng: null, eta: null, targetArrivalTime: null }); }
+        if (activeOrderId && db) {
+            const orderRef = db.collection("taxi_orders").doc(activeOrderId);
+            orderRef.get().then(doc => {
+                // Pokud řidič zastaví navigaci ve chvíli, kdy už zákazník nastoupil, jízda se rovnou bere jako vyřízená (Dokončeno).
+                if (doc.exists && doc.data().status === "Zákazník nastoupil") {
+                    orderRef.update({ status: "Dokončeno", driverLat: null, driverLng: null, eta: null, targetArrivalTime: null });
+                } else {
+                    orderRef.update({ driverLat: null, driverLng: null, eta: null, targetArrivalTime: null });
+                }
+            });
+        }
         
         if (coordsData.pickup) { map.setView(coordsData.pickup, 14); }
     }
