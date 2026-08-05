@@ -3471,34 +3471,43 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
     }
 
     function stopNavigation() {
-        map.stopLocate(); map.off('locationfound'); 
-        map.setBearing(0); 
-        clearRoutes(); hideNavigationInstructionsUI(); releaseWakeLock(); locationSharingActive = false;
-        
-        document.getElementById('btn-stop-nav').style.display = 'none'; 
-        document.getElementById('btn-arrived-at-customer').style.display = 'none';
-        document.getElementById('btn-nav-dropoff').style.display = 'none';
-        document.getElementById('btn-waiting-for-customer').style.display = 'none';
-        document.getElementById('btn-customer-on-way').style.display = 'none';
-        document.getElementById('btn-calc').style.display = 'block'; 
-        
-        const carIconEl = document.getElementById('driver-car-icon');
-        if (carIconEl) { carIconEl.style.transform = `rotate(0deg)`; }
+    map.stopLocate(); map.off('locationfound'); 
+    map.setBearing(0); 
+    clearRoutes(); hideNavigationInstructionsUI(); releaseWakeLock(); locationSharingActive = false;
+    
+    // 1. ZCELA VYMAZAT ŠPENDLÍKY (IKONY) Z MAPY
+    tempMarkers.clearLayers();
+    
+    document.getElementById('btn-stop-nav').style.display = 'none'; 
+    document.getElementById('btn-arrived-at-customer').style.display = 'none';
+    document.getElementById('btn-nav-dropoff').style.display = 'none';
+    document.getElementById('btn-waiting-for-customer').style.display = 'none';
+    document.getElementById('btn-customer-on-way').style.display = 'none';
+    document.getElementById('btn-calc').style.display = 'block'; 
+    
+    const carIconEl = document.getElementById('driver-car-icon');
+    if (carIconEl) { carIconEl.style.transform = `rotate(0deg)`; }
 
-        if (activeOrderId && db) {
-            const orderRef = db.collection("taxi_orders").doc(activeOrderId);
-            orderRef.get().then(doc => {
-                // Pokud řidič zastaví navigaci a zákazník už jel ve voze, jízda je Dokončená
-                if (doc.exists && doc.data().status === "Zákazník nastoupil") {
-                    orderRef.update({ status: "Dokončeno", driverLat: null, driverLng: null, eta: null, targetArrivalTime: null });
-                    activeOrderId = null; // Vyčistí paměť aplikace pro další jízdu
-                    alert("Jízda byla úspěšně dokončena.");
-                } else {
-                    // Pokud jen ruší navigaci cestou k zákazníkovi
-                    orderRef.update({ driverLat: null, driverLng: null, eta: null, targetArrivalTime: null });
-                }
-            });
-        }
+    if (activeOrderId && db) {
+        const orderRef = db.collection("taxi_orders").doc(activeOrderId);
+        orderRef.get().then(doc => {
+            // 2. Musíme uznat i stav "Zákazník ve voze", nejen "Zákazník nastoupil"
+            if (doc.exists && (doc.data().status === "Zákazník nastoupil" || doc.data().status === "Zákazník ve voze")) {
+                orderRef.update({ status: "Dokončeno", driverLat: null, driverLng: null, eta: null, targetArrivalTime: null });
+                activeOrderId = null; // Vyčistí paměť aplikace pro další jízdu
+                alert("Jízda byla úspěšně dokončena.");
+                
+                // 3. VYMAZAT TEXTY Z DISPEČINKU
+                document.getElementById('pickup').value = "";
+                document.getElementById('dropoff').value = "";
+                resetActionButtons();
+            } else {
+                // Pokud jen ruší navigaci cestou k zákazníkovi
+                orderRef.update({ driverLat: null, driverLng: null, eta: null, targetArrivalTime: null });
+            }
+        });
+    }
+}
         
         if (coordsData.pickup) { map.setView(coordsData.pickup, 14); }
     }
