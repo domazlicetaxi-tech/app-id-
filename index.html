@@ -798,7 +798,7 @@ body.dark-mode .order-card .order-card-detail {
             <button class="btn-action" onclick="openAdminHistory()" style="background:#475569; padding: 16px; font-size: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">📚 Historie všech jízd</button>
             <button class="btn-action" onclick="openAdminSearchHistory()" style="background:#7c3aed; padding: 16px; font-size: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">🔍 Historie hledaných tras</button>
             <button class="btn-action" onclick="openAdminEvidence()" style="background:var(--driver-blue); padding: 16px; font-size: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">📋 Evidence řidičů a vozidel</button>
-            <button class="btn-action" onclick="openAdminUsers()" style="background:var(--green-primary); padding: 16px; font-size: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">👥 Registrovaní zákazníci</button>
+            <button id="btn-admin-users-count" class="btn-action" onclick="openAdminUsers()" style="background:var(--green-primary); padding: 16px; font-size: 15px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">👥 Registrovaní zákazníci (0)</button>
         </div>
 
         <div id="section-admin" class="panel-content">
@@ -1655,6 +1655,19 @@ if (!isUserInteracting && !isMapPicking && routingControls.length === 0 && !docu
     });
 
     // --- UPRAVENÁ FUNKCE PRO OTEVŘENÍ ADMIN MENU (Pamatování hesla přes sessionStorage) ---
+    // NOVÉ: Funkce pro neustálé sledování počtu zákazníků
+    let adminUsersCountListener = null;
+    function updateAdminUsersCount() {
+        if (!db) return;
+        if (adminUsersCountListener) return; // Zabrání spuštění více procesů najednou
+        
+        // Neustále naslouchá databázi a při změně přepíše text tlačítka
+        adminUsersCountListener = db.collection("registered_customers").onSnapshot(snapshot => {
+            const btn = document.getElementById('btn-admin-users-count');
+            if (btn) btn.innerText = `👥 Registrovaní zákazníci (${snapshot.size})`;
+        });
+    }
+
     function handleAdminClick() {
         enforceFullscreen();
         clickCount++; clearTimeout(clickTimer); clickTimer = setTimeout(() => { clickCount = 0; }, 400);
@@ -1662,10 +1675,12 @@ if (!isUserInteracting && !isMapPicking && routingControls.length === 0 && !docu
             clickCount = 0; 
             if (sessionStorage.getItem('admin_logged_in') === 'true') {
                 showSection('section-admin-menu');
+                updateAdminUsersCount(); // Spustí počítadlo
             } else {
                 if (prompt("Zadejte administrátorské heslo:") === "26 3654") { 
                     sessionStorage.setItem('admin_logged_in', 'true');
                     showSection('section-admin-menu'); 
+                    updateAdminUsersCount(); // Spustí počítadlo
                 } else { 
                     alert("Neplatné heslo."); 
                 } 
