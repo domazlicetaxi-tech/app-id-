@@ -3619,11 +3619,14 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         if (!pLat || !pLng) return alert("Chybí GPS souřadnice pro vykreslení trasy.");
 
         // --- Auto-detekce Město / Mimo město podle historie ---
+        let originalPrice = 0;
+        let originalDist = 0;
+        
         if (histPrice && histDist) {
-            let p = parseFloat(String(histPrice).replace(',', '.').replace(/[^0-9.]/g, ''));
-            let d = parseFloat(String(histDist).replace(',', '.').replace(/[^0-9.]/g, ''));
-            if (d > 0) {
-                let rate = Math.round((p - 20) / d);
+            originalPrice = parseFloat(String(histPrice).replace(',', '.').replace(/[^0-9.]/g, ''));
+            originalDist = parseFloat(String(histDist).replace(',', '.').replace(/[^0-9.]/g, ''));
+            if (originalDist > 0) {
+                let rate = Math.round((originalPrice - 20) / originalDist);
                 if (rate !== 34) {
                     changeMode('mimo'); 
                 } else {
@@ -3690,6 +3693,16 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         }
         
         resetActionButtons();
+        
+        // --- NOVÉ: Propsání původní ceny a vzdálenosti přímo do dispečinku ---
+        if (originalPrice > 0 && originalDist > 0) {
+            document.getElementById('dist-val').innerText = originalDist.toFixed(1);
+            document.getElementById('price-val').innerText = Math.round(originalPrice);
+            
+            // Schováme tlačítko "Vypočítat trasu a cenu", abychom zabránili novému odlišnému přepočtu
+            document.getElementById('btn-calc').style.display = 'none';
+        }
+        // ----------------------------------------------------------------------
         
         if (window.innerWidth <= 768) {
             setTimeout(() => { document.getElementById('map').scrollIntoView({ behavior: 'smooth' }); }, 400);
