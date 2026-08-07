@@ -4514,7 +4514,7 @@ function applyHistoryFilters() {
                 <td style="padding: 10px; border: 1px solid #cbd5e1;"><a href="tel:${data.phone}" class="admin-link" style="color: #0056b3; font-weight: bold; text-decoration: none;">📞 ${data.phone || "-"}</a></td>
                 <td style="padding: 10px; border: 1px solid #cbd5e1; line-height: 1.4;">
                     <b>Z:</b> ${data.pickup}<br><b>Do:</b> ${data.dropoff}<br>
-                    <button style="margin-top:6px; background:white; border:1px solid #cbd5e1; padding:4px 8px; font-size:11px; border-radius:4px; font-weight: bold; cursor:pointer;" onclick="viewCustomerRoute(${pLat}, ${pLng}, ${dLat}, ${dLng})">🗺️ Ukázat trasu</button>
+                    <button style="margin-top:6px; background:white; border:1px solid #cbd5e1; padding:4px 8px; font-size:11px; border-radius:4px; font-weight: bold; cursor:pointer;" onclick="viewCustomerRoute(${pLat}, ${pLng}, ${dLat}, ${dLng}, '${data.price}', '${data.distance}')">🗺️ Ukázat trasu</button>
                 </td>
                 <td style="padding: 10px; border: 1px solid #cbd5e1;">${data.distance} km<br><b style="color:var(--green-primary);">${data.price} Kč</b></td>
                 <td style="padding: 10px; border: 1px solid #cbd5e1; text-align:center;">${renderLocationLink(data.userLocation, data.userLat, data.userLng)}</td>
