@@ -3639,6 +3639,9 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         const btnBack = document.getElementById('btn-back-to-admin');
         if (btnBack) btnBack.style.display = 'block';
         
+        // OPRAVA: Vyčistíme rozhraní před samotným kreslením trasy, aby nám clearRoutes() trasu hned nesmazal
+        resetActionButtons();
+        
         clearRoutes();
         tempMarkers.clearLayers(); 
         
@@ -3649,6 +3652,7 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         const baseCoords = L.latLng(49.439841, 12.927355);
         let routePoints = [];
 
+        // Pokud je to mimo město, přidáme start na centrále
         if (rateSetting === 'mimo') {
             L.marker(baseCoords, {icon: iconBase}).addTo(tempMarkers).bindPopup("Sídlo firmy (Albert)");
             routePoints.push(createWaypoint(baseCoords));
@@ -3667,6 +3671,7 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
             L.marker(dropoffLatLng, {icon: iconDropoff}).addTo(tempMarkers).bindPopup("Cíl cesty");
             routePoints.push(createWaypoint(dropoffLatLng));
 
+            // Pokud je to mimo město, přidáme návrat na centrálu
             if (rateSetting === 'mimo') {
                 routePoints.push(createWaypoint(baseCoords));
             }
@@ -3692,9 +3697,7 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
             setTimeout(() => { map.setView(pickupLatLng, 16); }, 400);
         }
         
-        resetActionButtons();
-        
-        // --- NOVÉ: Propsání původní ceny a vzdálenosti přímo do dispečinku ---
+        // --- Propsání původní ceny a vzdálenosti přímo do dispečinku ---
         if (originalPrice > 0 && originalDist > 0) {
             document.getElementById('dist-val').innerText = originalDist.toFixed(1);
             document.getElementById('price-val').innerText = Math.round(originalPrice);
@@ -3702,7 +3705,6 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
             // Schováme tlačítko "Vypočítat trasu a cenu", abychom zabránili novému odlišnému přepočtu
             document.getElementById('btn-calc').style.display = 'none';
         }
-        // ----------------------------------------------------------------------
         
         if (window.innerWidth <= 768) {
             setTimeout(() => { document.getElementById('map').scrollIntoView({ behavior: 'smooth' }); }, 400);
