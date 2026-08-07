@@ -3615,13 +3615,24 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         }
     }
 
-    function viewCustomerRoute(pLat, pLng, dLat, dLng) {
+    function viewCustomerRoute(pLat, pLng, dLat, dLng, histPrice, histDist) {
         if (!pLat || !pLng) return alert("Chybí GPS souřadnice pro vykreslení trasy.");
+
+        // --- Auto-detekce Město / Mimo město podle historie ---
+        if (histPrice && histDist) {
+            let p = parseFloat(String(histPrice).replace(',', '.').replace(/[^0-9.]/g, ''));
+            let d = parseFloat(String(histDist).replace(',', '.').replace(/[^0-9.]/g, ''));
+            if (d > 0) {
+                let rate = Math.round((p - 20) / d);
+                if (rate !== 34) {
+                    changeMode('mimo'); 
+                } else {
+                    changeMode('mesto'); 
+                }
+            }
+        }
         
-        // Zobrazí hlavní panel aplikace s mapou
         showSection('section-app');
-        
-        // Odkryje fialové tlačítko pro návrat z mapy zpět do administrace
         const btnBack = document.getElementById('btn-back-to-admin');
         if (btnBack) btnBack.style.display = 'block';
         
@@ -3629,30 +3640,37 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         tempMarkers.clearLayers(); 
         
         let pickupLatLng = L.latLng(pLat, pLng);
-        
-        // --- PŘIDÁNO: Uložení startu do paměti a propsání do inputu ---
         coordsData.pickup = pickupLatLng;
         document.getElementById('pickup').value = "Start z historie (GPS)";
-        // -------------------------------------------------------------
+        
+        const baseCoords = L.latLng(49.439841, 12.927355);
+        let routePoints = [];
+
+        if (rateSetting === 'mimo') {
+            L.marker(baseCoords, {icon: iconBase}).addTo(tempMarkers).bindPopup("Sídlo firmy (Albert)");
+            routePoints.push(createWaypoint(baseCoords));
+        }
         
         L.marker(pickupLatLng, {icon: iconPickup}).addTo(tempMarkers).bindPopup("Místo nakládky (Hledaná trasa)").openPopup();
+        routePoints.push(createWaypoint(pickupLatLng));
         
-        // Vynutí probuzení mapy z režimu displej:none
         setTimeout(() => { if (typeof map !== 'undefined') map.invalidateSize(); }, 300);
         
         if (dLat && dLng) {
             let dropoffLatLng = L.latLng(dLat, dLng);
-            
-            // --- PŘIDÁNO: Uložení cíle do paměti a propsání do inputu ---
             coordsData.dropoff = dropoffLatLng;
             document.getElementById('dropoff').value = "Cíl z historie (GPS)";
-            // -------------------------------------------------------------
             
             L.marker(dropoffLatLng, {icon: iconDropoff}).addTo(tempMarkers).bindPopup("Cíl cesty");
+            routePoints.push(createWaypoint(dropoffLatLng));
+
+            if (rateSetting === 'mimo') {
+                routePoints.push(createWaypoint(baseCoords));
+            }
             
             let rc = L.Routing.control({
-                waypoints: [createWaypoint(pickupLatLng), createWaypoint(dropoffLatLng)],
-                router: getRouter(2), 
+                waypoints: routePoints,
+                router: getRouter(routePoints.length), 
                 show: false, 
                 addWaypoints: false,
                 createMarker: function() { return null; },
@@ -3661,32 +3679,20 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
             
             rc.on('routesfound', function(e) {
                 let routes = e.routes;
-                // Zpoždění zoomu, aby se prohlížeč nejprve stihl překreslit
-                setTimeout(() => {
-                    map.fitBounds(L.polyline(routes[0].coordinates).getBounds(), { padding: [50, 50] });
-                }, 400);
+                setTimeout(() => { map.fitBounds(L.polyline(routes[0].coordinates).getBounds(), { padding: [50, 50] }); }, 400);
             });
             
             routingControls.push(rc);
         } else {
-            // --- PŘIDÁNO: Pokud chybí cíl, vyčistíme paměť cíle ---
             coordsData.dropoff = null;
             document.getElementById('dropoff').value = "";
-            // ----------------------------------------------------
-            
-            setTimeout(() => {
-                map.setView(pickupLatLng, 16);
-            }, 400);
+            setTimeout(() => { map.setView(pickupLatLng, 16); }, 400);
         }
         
-        // --- PŘIDÁNO: Reset tlačítek, aby se hned ukázalo "Vypočítat trasu a cenu" ---
         resetActionButtons();
-        // ---------------------------------------------------------------------------
         
         if (window.innerWidth <= 768) {
-            setTimeout(() => {
-                document.getElementById('map').scrollIntoView({ behavior: 'smooth' });
-            }, 400);
+            setTimeout(() => { document.getElementById('map').scrollIntoView({ behavior: 'smooth' }); }, 400);
         }
     }
 
