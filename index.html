@@ -3615,8 +3615,17 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         }
     }
 
-    function viewCustomerRoute(pLat, pLng, dLat, dLng, histPrice, histDist) {
+    function viewCustomerRoute(pLat, pLng, dLat, dLng, histPrice, histDist, orderId) {
         if (!pLat || !pLng) return alert("Chybí GPS souřadnice pro vykreslení trasy.");
+
+        // --- NOVÉ: Získání průjezdných bodů z historie ---
+        let waypoints = null;
+        if (orderId && typeof allHistoryData !== 'undefined') {
+            let record = allHistoryData.find(x => x.id === orderId);
+            if (record && record.waypointsCoords) {
+                waypoints = record.waypointsCoords;
+            }
+        }
 
         // --- Auto-detekce Město / Mimo město podle historie ---
         let originalPrice = 0;
@@ -3639,11 +3648,15 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         const btnBack = document.getElementById('btn-back-to-admin');
         if (btnBack) btnBack.style.display = 'block';
         
-        // OPRAVA: Vyčistíme rozhraní před samotným kreslením trasy, aby nám clearRoutes() trasu hned nesmazal
+        // Vyčistíme rozhraní před samotným kreslením trasy
         resetActionButtons();
-        
         clearRoutes();
         tempMarkers.clearLayers(); 
+        
+        // --- NOVÉ: Vyčistíme i staré průjezdné body z formuláře dispečinku ---
+        coordsData.waypoints = [];
+        const wpContainer = document.getElementById('waypoints-container');
+        if (wpContainer) wpContainer.innerHTML = '';
         
         let pickupLatLng = L.latLng(pLat, pLng);
         coordsData.pickup = pickupLatLng;
@@ -3660,6 +3673,15 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         
         L.marker(pickupLatLng, {icon: iconPickup}).addTo(tempMarkers).bindPopup("Místo nakládky (Hledaná trasa)").openPopup();
         routePoints.push(createWaypoint(pickupLatLng));
+        
+        // --- NOVÉ: Vložení průjezdných bodů do mapy zákazníka ---
+        if (waypoints && Array.isArray(waypoints)) {
+            waypoints.forEach((wp, idx) => {
+                let wpll = L.latLng(wp.lat, wp.lng);
+                routePoints.push(createWaypoint(wpll));
+                L.marker(wpll, {icon: iconWaypoint}).addTo(tempMarkers).bindPopup("Průjezdný bod " + (idx+1));
+            });
+        }
         
         setTimeout(() => { if (typeof map !== 'undefined') map.invalidateSize(); }, 300);
         
@@ -4535,7 +4557,8 @@ function applyHistoryFilters() {
                 <td style="padding: 10px; border: 1px solid #cbd5e1;"><a href="tel:${data.phone}" class="admin-link" style="color: #0056b3; font-weight: bold; text-decoration: none;">📞 ${data.phone || "-"}</a></td>
                 <td style="padding: 10px; border: 1px solid #cbd5e1; line-height: 1.4;">
                     <b>Z:</b> ${data.pickup}<br><b>Do:</b> ${data.dropoff}<br>
-                    <button style="margin-top:6px; background:white; border:1px solid #cbd5e1; padding:4px 8px; font-size:11px; border-radius:4px; font-weight: bold; cursor:pointer;" onclick="viewCustomerRoute(${pLat}, ${pLng}, ${dLat}, ${dLng}, '${data.price}', '${data.distance}')">🗺️ Ukázat trasu</button>
+                    <!-- OPRAVA ZDE: Přidán parametr data.id -->
+                    <button style="margin-top:6px; background:white; border:1px solid #cbd5e1; padding:4px 8px; font-size:11px; border-radius:4px; font-weight: bold; cursor:pointer;" onclick="viewCustomerRoute(${pLat}, ${pLng}, ${dLat}, ${dLng}, '${data.price}', '${data.distance}', '${data.id}')">🗺️ Ukázat trasu</button>
                 </td>
                 <td style="padding: 10px; border: 1px solid #cbd5e1;">${data.distance} km<br><b style="color:var(--green-primary);">${data.price} Kč</b></td>
                 <td style="padding: 10px; border: 1px solid #cbd5e1; text-align:center;">${renderLocationLink(data.userLocation, data.userLat, data.userLng)}</td>
