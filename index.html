@@ -3629,6 +3629,12 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         tempMarkers.clearLayers(); 
         
         let pickupLatLng = L.latLng(pLat, pLng);
+        
+        // --- PŘIDÁNO: Uložení startu do paměti a propsání do inputu ---
+        coordsData.pickup = pickupLatLng;
+        document.getElementById('pickup').value = "Start z historie (GPS)";
+        // -------------------------------------------------------------
+        
         L.marker(pickupLatLng, {icon: iconPickup}).addTo(tempMarkers).bindPopup("Místo nakládky (Hledaná trasa)").openPopup();
         
         // Vynutí probuzení mapy z režimu displej:none
@@ -3636,6 +3642,12 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         
         if (dLat && dLng) {
             let dropoffLatLng = L.latLng(dLat, dLng);
+            
+            // --- PŘIDÁNO: Uložení cíle do paměti a propsání do inputu ---
+            coordsData.dropoff = dropoffLatLng;
+            document.getElementById('dropoff').value = "Cíl z historie (GPS)";
+            // -------------------------------------------------------------
+            
             L.marker(dropoffLatLng, {icon: iconDropoff}).addTo(tempMarkers).bindPopup("Cíl cesty");
             
             let rc = L.Routing.control({
@@ -3657,10 +3669,19 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
             
             routingControls.push(rc);
         } else {
+            // --- PŘIDÁNO: Pokud chybí cíl, vyčistíme paměť cíle ---
+            coordsData.dropoff = null;
+            document.getElementById('dropoff').value = "";
+            // ----------------------------------------------------
+            
             setTimeout(() => {
                 map.setView(pickupLatLng, 16);
             }, 400);
         }
+        
+        // --- PŘIDÁNO: Reset tlačítek, aby se hned ukázalo "Vypočítat trasu a cenu" ---
+        resetActionButtons();
+        // ---------------------------------------------------------------------------
         
         if (window.innerWidth <= 768) {
             setTimeout(() => {
