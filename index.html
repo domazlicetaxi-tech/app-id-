@@ -289,10 +289,10 @@ body.admin-mode #app-container{
         .admin-filters .btn-filter-reset { background: #64748b; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; }
 /* --- STYLY PRO TISK (Schová aplikaci a vytiskne jen účtenku) --- */
 @media print {
-    /* Odstraní okraje a webové adresy (systémové hlavičky) */
+    /* Potlačení systémových okrajů a webových adres */
     @page { margin: 0; size: auto; }
     
-    /* ABSOLUTNÍ SKRYTÍ APLIKACE (přebije i admin režim) */
+    /* SKRYTÍ ZBYTKU APLIKACE */
     body #app-container, 
     body.admin-mode #app-container,
     body #taxameter-top-panel,
@@ -300,19 +300,21 @@ body.admin-mode #app-container{
         display: none !important;
     }
     
-    /* Zobrazení čistě jen okna s účtenkou */
+    /* NASTAVENÍ HLAVNÍHO OKNA ÚČTENKY PRO TERMOTISK */
     body > #receipt-modal {
         display: block !important;
         position: relative !important;
         width: 100% !important;
         height: auto !important;
         background: white !important;
+        color: black !important;
         margin: 0 !important;
-        padding: 0 !important;
+        padding: 5px !important;
     }
     
     #receipt-modal * {
         visibility: visible !important;
+        color: black !important;
     }
 
     .modal-content {
@@ -322,11 +324,12 @@ body.admin-mode #app-container{
         width: 100% !important; 
         max-width: 100% !important; 
         margin: 0 auto !important;
+        overflow: visible !important;
     }
     
     #receipt-action-buttons { display: none !important; }
 
-    /* --- ÚPRAVY PRO TERMOTISKÁRNU A MAPU POD TEXTEM --- */
+    /* --- ROZLOŽENÍ TEXTU A MAPY --- */
     .modal-content > div:first-child {
         display: block !important; 
     }
@@ -336,21 +339,70 @@ body.admin-mode #app-container{
         max-width: 100% !important;
         width: 100% !important;
         display: block !important;
-        margin-bottom: 5px !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
-    /* Zkrácení a ohraničení mapy */
+    /* --- VYLADĚNÍ ČITELNOSTI ROZPISU CENY --- */
+    .modal-content p, 
+    .modal-content div {
+        font-size: 14px !important; 
+        line-height: 1.4 !important;
+    }
+
+    /* Tabulka s rozpisem (Nástupka, Ujeto, Čekání) */
+    .modal-content table {
+        width: 100% !important;
+        font-size: 14px !important;
+        margin-bottom: 10px !important;
+    }
+    
+    .modal-content table td {
+        padding: 5px 0 !important;
+    }
+
+    #receipt-main-title { 
+        font-size: 18px !important; 
+        margin-bottom: 10px !important; 
+        text-align: center !important;
+    }
+
+    /* --- CENA CELKEM V TUČNÉM RÁMEČKU --- */
+    .modal-content h2 {
+        display: block !important;
+        font-size: 24px !important; /* Opravdu velký text */
+        font-weight: 900 !important;
+        text-align: center !important;
+        margin: 15px 0 !important;
+        padding: 12px !important;
+        border: 3px solid black !important; /* Tlustý rámeček kolem sumy */
+        border-radius: 6px !important;
+    }
+
+    /* --- MAPA POD ÚČTENKOU --- */
     #receipt-map { 
         border: 2px solid #000 !important; 
         height: 180px !important; 
         margin-top: 10px !important;
+        margin-bottom: 20px !important;
         display: block !important;
     }
 
-    /* Vynucení tisku grafiky (mapy) */
     .leaflet-tile-pane {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
+    }
+
+    /* --- VYNUCENÍ SVĚTLÉ MAPY PŘI TISKU V NOČNÍM REŽIMU --- */
+    body.dark-mode .leaflet-tile,
+    body.dark-mode .leaflet-control-zoom-in,
+    body.dark-mode .leaflet-control-zoom-out,
+    body.dark-mode .leaflet-control-attribution {
+        filter: none !important;
+        -webkit-filter: none !important;
+    }
+    body.dark-mode .leaflet-container {
+        background: white !important; 
     }
 }
    /* --- RYCHLOMĚR (SPEEDOMETER) --- */
