@@ -591,6 +591,12 @@ body.dark-mode .order-card .order-card-detail {
 .leaflet-routing-container {
     display: none !important;
 }
+    /* --- OPRAVA NEVIDITELNÝCH NADPISŮ NA ÚČTENCE V NOČNÍM REŽIMU --- */
+body.dark-mode #receipt-modal h2,
+body.dark-mode #receipt-modal h3,
+body.dark-mode #receipt-modal span {
+    color: #000000 !important;
+}    
     </style>
 </head>
 <body>
