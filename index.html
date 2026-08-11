@@ -289,102 +289,89 @@ body.admin-mode #app-container{
         .admin-filters .btn-filter-reset { background: #64748b; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; }
 /* --- STYLY PRO TISK (Schová aplikaci a vytiskne jen účtenku) --- */
 @media print {
-    /* Potlačení systémových okrajů a webových adres */
     @page { margin: 0; size: auto; }
     
-    /* SKRYTÍ ZBYTKU APLIKACE */
-    body #app-container, 
-    body.admin-mode #app-container,
-    body #taxameter-top-panel,
-    body #edit-history-modal {
+    /* NUKLEÁRNÍ ZBRAŇ: Schová úplně vše na stránce kromě účtenky */
+    body > *:not(#receipt-modal) {
         display: none !important;
     }
     
-    /* NASTAVENÍ HLAVNÍHO OKNA ÚČTENKY PRO TERMOTISK */
-    body > #receipt-modal {
+    body {
+        background: white !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    #receipt-modal {
         display: block !important;
-        position: relative !important;
+        position: absolute !important;
+        left: 0 !important; top: 0 !important;
         width: 100% !important;
         height: auto !important;
         background: white !important;
-        color: black !important;
         margin: 0 !important;
-        padding: 5px !important;
+        padding: 2px !important;
     }
     
     #receipt-modal * {
         visibility: visible !important;
         color: black !important;
     }
-.leaflet-container, #receipt-map { background: white !important; }
+
     .modal-content {
         box-shadow: none !important; 
         border: none !important; 
         padding: 0 !important;
         width: 100% !important; 
-        max-width: 100% !important; 
-        margin: 0 auto !important;
-        overflow: visible !important;
+        margin: 0 !important;
+        overflow: hidden !important;
     }
     
     #receipt-action-buttons { display: none !important; }
 
-    /* --- ROZLOŽENÍ TEXTU A MAPY --- */
-    .modal-content > div:first-child {
-        display: block !important; 
-    }
-    
-    .modal-content > div:first-child > div {
-        min-width: 100% !important;
-        max-width: 100% !important;
-        width: 100% !important;
-        display: block !important;
-        margin: 0 !important;
-        padding: 0 !important;
-    }
+    /* --- ROZLOŽENÍ A ZMENŠENÍ PÍSMA PRO TERMOTISK --- */
+    .modal-content > div:first-child { display: block !important; }
+    .modal-content > div:first-child > div { width: 100% !important; display: block !important; margin: 0 !important; }
 
-    /* --- VYLADĚNÍ ČITELNOSTI ROZPISU CENY --- */
+    /* Zmenšené písmo, aby se SPZ a názvy aut vešly na jeden řádek */
     .modal-content p, 
-    .modal-content div {
-        font-size: 14px !important; 
-        line-height: 1.4 !important;
-    }
-
-    /* Tabulka s rozpisem (Nástupka, Ujeto, Čekání) */
-    .modal-content table {
-        width: 100% !important;
-        font-size: 14px !important;
-        margin-bottom: 10px !important;
-    }
-    
-    .modal-content table td {
-        padding: 5px 0 !important;
+    .modal-content div, 
+    .modal-content td {
+        font-size: 11px !important; 
+        line-height: 1.3 !important;
+        margin: 2px 0 !important;
     }
 
     #receipt-main-title { 
-        font-size: 18px !important; 
-        margin-bottom: 10px !important; 
+        font-size: 14px !important; 
+        margin-bottom: 5px !important; 
         text-align: center !important;
+        font-weight: 900 !important;
     }
 
-    /* --- CENA CELKEM V TUČNÉM RÁMEČKU --- */
+    .modal-content table {
+        width: 100% !important;
+        margin-bottom: 5px !important;
+    }
+
+    /* Cena Celkem - zmenšeno na rozumnou míru, ale pořád výrazné */
     .modal-content h2 {
         display: block !important;
-        font-size: 24px !important; /* Opravdu velký text */
+        font-size: 16px !important; 
         font-weight: 900 !important;
         text-align: center !important;
-        margin: 15px 0 !important;
-        padding: 12px !important;
-        border: 3px solid black !important; /* Tlustý rámeček kolem sumy */
-        border-radius: 6px !important;
+        margin: 8px 0 !important;
+        padding: 6px !important;
+        border: 2px solid black !important;
+        border-radius: 4px !important;
     }
 
-    /* --- MAPA POD ÚČTENKOU --- */
+    /* --- MAPA --- */
     #receipt-map { 
-        border: 2px solid #000 !important; 
-        height: 180px !important; 
-        margin-top: 10px !important;
-        margin-bottom: 20px !important;
+        border: 2px solid black !important; 
+        height: 150px !important; 
+        width: 100% !important;
+        margin-top: 5px !important;
         display: block !important;
     }
 
@@ -392,6 +379,7 @@ body.admin-mode #app-container{
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
+}
 
     /* --- VYNUCENÍ SVĚTLÉ MAPY PŘI TISKU V NOČNÍM REŽIMU --- */
     body.dark-mode .leaflet-tile,
@@ -3190,7 +3178,7 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         // 1. Skryjeme tlačítka
         actionBtns.style.display = 'none';
 
-        // 2. Vnutíme oknu na obrazovce úzké rozměry termotiskárny PŘED spuštěním tisku
+        // 2. Vnutíme oknu úzké rozměry termotiskárny PŘED spuštěním tisku
         topContainer.style.display = 'block';
         for (let i = 0; i < topContainer.children.length; i++) {
             topContainer.children[i].style.width = '100%';
@@ -3198,12 +3186,11 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
             topContainer.children[i].style.display = 'block';
         }
         
-        mapContainer.style.height = '180px';
+        mapContainer.style.height = '150px';
 
-        // 3. Řekneme mapě, že se zmenšila, a donutíme ji vycentrovat CELOU trasu
+        // 3. Donutíme mapu vycentrovat celou trasu do úzkého okna
         if (receiptMap) {
             receiptMap.invalidateSize();
-            
             let bounds = L.latLngBounds();
             receiptMap.eachLayer(function (layer) {
                 if (layer instanceof L.Marker) {
@@ -3212,17 +3199,16 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
                     bounds.extend(layer.getBounds());
                 }
             });
-
             if (bounds.isValid()) {
-                receiptMap.fitBounds(bounds, { padding: [15, 15] });
+                receiptMap.fitBounds(bounds, { padding: [10, 10] });
             }
         }
 
-        // 4. Počkáme 800ms, aby se načetly správné mapové čtverce, a pak teprve tiskneme
+        // 4. Počkáme 1500 ms (1,5 sekundy), aby měl slabší tablet čas vykreslit mapu!
         setTimeout(() => {
             window.print();
             
-            // 5. Vrátíme vše do původního širokého stavu pro zobrazení na tabletu
+            // 5. Vrácení do původního stavu na obrazovce
             actionBtns.style.display = 'block';
             topContainer.style.display = 'flex';
             for (let i = 0; i < topContainer.children.length; i++) {
@@ -3234,7 +3220,7 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
             
             if (receiptMap) receiptMap.invalidateSize();
             
-        }, 800);
+        }, 1500);
     }
 
 // --- FUNKCE PRO ODESLÁNÍ PDF ELEKTRONICKY (WhatsApp, E-mail, atd.) ---
