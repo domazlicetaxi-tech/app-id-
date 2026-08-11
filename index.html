@@ -3200,15 +3200,17 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         document.getElementById('receipt-modal').style.display = 'none';
     }
 
-    function executePrint() {
+   function executePrint() {
     const actionBtns = document.getElementById('receipt-action-buttons');
     const mapContainer = document.getElementById('receipt-map');
     const modalContent = document.querySelector('.modal-content');
-    const appContainer = document.getElementById('app-container'); // NOVÉ: Uchopení pozadí aplikace
+    const appContainer = document.getElementById('app-container');
 
-    // 1. Skryjeme tlačítka a TVRDĚ SKRYJEME pozadí aplikace
+    // 1. Skryjeme tlačítka a TVRDĚ SKRYJEME pozadí aplikace pomocí !important
     actionBtns.style.display = 'none';
-    if (appContainer) appContainer.style.display = 'none'; // NOVÉ: Jistota pro tablety
+    if (appContainer) {
+        appContainer.style.setProperty('display', 'none', 'important');
+    }
 
     // 2. Simulace šířky 5,6 cm (210px) na obrazovce
     const originalWidth = modalContent.style.width;
@@ -3247,7 +3249,9 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         
         // 5. Návrat do původního stavu
         actionBtns.style.display = 'block';
-        if (appContainer) appContainer.style.display = ''; // NOVÉ: Vrátíme aplikaci zpět
+        if (appContainer) {
+            appContainer.style.removeProperty('display'); // Vrátí zobrazení aplikace zpět
+        }
         modalContent.style.width = originalWidth;
         
         topContainer.style.display = 'flex';
@@ -3262,7 +3266,6 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         
     }, 1500);
 }
-
 // --- FUNKCE PRO ODESLÁNÍ PDF ELEKTRONICKY (WhatsApp, E-mail, atd.) ---
     async function sendReceiptEmail() {
         const actionBtns = document.getElementById('receipt-action-buttons');
