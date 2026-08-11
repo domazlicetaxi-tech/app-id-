@@ -291,16 +291,25 @@ body.admin-mode #app-container{
 @media print {
     @page { margin: 0; size: auto; }
     
+    /* Jistota: Vynucené skrytí hlavních kontejnerů mimo účtenku */
+    #app-container, #taxameter-top-panel, #edit-history-modal {
+        display: none !important;
+    }
+    
     /* Schováme úplně vše kromě účtenky */
     body > *:not(#receipt-modal) {
         display: none !important;
     }
     
-    body {
+    /* Změněno: Omezíme výšku, aby netiskl prázdný papír */
+    html, body {
         background: white !important;
         margin: 0 !important;
         padding: 0 !important;
         color: black !important;
+        height: auto !important;
+        min-height: auto !important;
+        overflow: visible !important;
     }
 
     #receipt-modal {
@@ -329,7 +338,10 @@ body.admin-mode #app-container{
         width: 100% !important; 
         margin: 0 !important;
         overflow: visible !important;
+        max-height: none !important; /* Přidáno: Zabraňuje problému s rolovacími okraji u dlouhé účtenky */
     }
+    
+    /* ... zbytek tiskového CSS necháte přesně tak, jak je ... */
     
     #receipt-action-buttons { display: none !important; }
 
