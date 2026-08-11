@@ -289,26 +289,44 @@ body.admin-mode #app-container{
         .admin-filters .btn-filter-reset { background: #64748b; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; }
  /* --- STYLY PRO TISK (Schová aplikaci a vytiskne jen účtenku) --- */
 @media print {
-    /* Odstraní URL adresy, datum a čísla stránek z okrajů */
-    @page { margin: 0; }
+    /* Pokusí se potlačit systémové hlavičky a okraje */
+    @page { margin: 0; size: auto; }
     
-    body * { visibility: hidden; }
-    #receipt-modal, #receipt-modal * { visibility: visible; }
+    /* Vynulujeme výšky, aby tiskárna netiskla prázdný prostor obrazovky */
+    html, body {
+        height: auto !important;
+        min-height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+    }
     
+    /* ÚPLNĚ odstraníme aplikaci z tisku (nezůstane po ní prázdné místo) */
+    #app-container, #taxameter-top-panel, #edit-history-modal {
+        display: none !important;
+    }
+    
+    /* Zobrazíme POUZE účtenku a ukotvíme ji, aby definovala délku papíru */
     #receipt-modal {
-        position: absolute; left: 0; top: 0; background: white; padding: 0; margin: 0;
-        width: 100%; height: auto; display: block !important;
+        position: relative !important;
+        left: auto !important; top: auto !important;
+        background: white !important; 
+        padding: 0 !important; margin: 0 !important;
+        width: 100% !important; 
+        height: auto !important; 
+        display: block !important;
     }
     
     .modal-content {
         box-shadow: none !important; border: none !important; padding: 0 !important;
         width: 100% !important; max-width: 100% !important; margin: 0 auto;
+        overflow: visible !important;
     }
     
     #receipt-action-buttons { display: none !important; }
 
     /* --- ÚPRAVY PRO TERMOTISKÁRNU A MAPU POD TEXTEM --- */
-    /* Zruší rozložení vedle sebe a dá prvky pod sebe */
+    /* Zruší rozložení vedle sebe a dá text a mapu pod sebe */
     .modal-content > div:first-child {
         display: block !important; 
     }
@@ -319,13 +337,15 @@ body.admin-mode #app-container{
         max-width: 100% !important;
         width: 100% !important;
         display: block !important;
+        margin-bottom: 5px !important;
     }
 
-    /* Upraví ohraničení a zkrátí výšku mapy, ať neplýtvá papírem */
+    /* Zkrácení mapy, aby účtenka nebyla zbytečně dlouhá */
     #receipt-map { 
         border: 2px solid #000 !important; 
-        height: 200px !important; 
-        margin-top: 15px !important;
+        height: 180px !important; 
+        margin-top: 10px !important;
+        display: block !important;
     }
     /* -------------------------------------------------- */
 
