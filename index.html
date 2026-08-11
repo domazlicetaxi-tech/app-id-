@@ -289,9 +289,13 @@ body.admin-mode #app-container{
         .admin-filters .btn-filter-reset { background: #64748b; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; }
 /* --- STYLY PRO TISK (Schová aplikaci a vytiskne jen účtenku) --- */
 @media print {
-    @page { margin: 0; size: auto; }
+    /* 1. ZRUŠENÍ HLAVIČEK A PATIČEK (URL, Datum, Název stránky) */
+    @page { 
+        margin: 0mm !important; 
+        size: auto; 
+    }
     
-    /* --- NOVÉ: EXTRÉMNĚ SPECIFICKÁ PRAVIDLA PRO SKRYTÍ POZADÍ --- */
+    /* Pojištění skrytí administrace a pozadí */
     body.admin-mode #app-container,
     body.admin-mode #panel,
     #app-container,
@@ -302,12 +306,10 @@ body.admin-mode #app-container{
         overflow: hidden !important;
     }
     
-    /* Schováme úplně vše kromě účtenky (původní pravidlo) */
     body > *:not(#receipt-modal) {
         display: none !important;
     }
     
-    /* Zabrání tisku prázdných stránek */
     html, body {
         background: white !important;
         margin: 0 !important;
@@ -318,8 +320,6 @@ body.admin-mode #app-container{
         overflow: visible !important;
     }
 
-    /* ... zbytek tiskového CSS zůstává (úzký modal, atd.) ... */
-
     #receipt-modal {
         display: block !important;
         position: relative !important;
@@ -328,15 +328,29 @@ body.admin-mode #app-container{
         height: auto !important;
         background: white !important;
         margin: 0 !important;
-        /* Nastavení požadované 4 mm mezery po svislých krajích */
-        padding: 0 4mm !important;
+        padding: 0 !important;
         box-sizing: border-box !important;
     }
     
+    /* 2. OPRAVA ČEŠTINY: Zabráníme tiskárně použít její rozbitý vestavěný font */
     #receipt-modal * {
         visibility: visible !important;
         color: black !important;
-        font-family: 'Courier New', Courier, monospace !important;
+        font-family: Arial, Helvetica, sans-serif !important; 
+    }
+
+    /* 3. OPRAVA MAPY: Skrytí šipek (zoomu) */
+    .leaflet-control-container,
+    .leaflet-control-zoom {
+        display: none !important;
+    }
+
+    /* Úprava mapy, aby ji termotiskárna lépe "viděla" (černobílý kontrast) */
+    .leaflet-tile-pane {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        filter: grayscale(100%) contrast(150%) !important;
+        opacity: 1 !important;
     }
 
     .modal-content {
@@ -346,14 +360,12 @@ body.admin-mode #app-container{
         width: 100% !important; 
         margin: 0 !important;
         overflow: visible !important;
-        max-height: none !important; /* Přidáno: Zabraňuje problému s rolovacími okraji u dlouhé účtenky */
+        max-height: none !important;
     }
-    
-    /* ... zbytek tiskového CSS necháte přesně tak, jak je ... */
     
     #receipt-action-buttons { display: none !important; }
 
-    /* --- ROZLOŽENÍ BLOKŮ POD SEBE --- */
+    /* Rozložení bloků pod sebe */
     .modal-content > div:first-child { display: block !important; }
     .modal-content > div:first-child > div { 
         width: 100% !important; 
@@ -362,7 +374,6 @@ body.admin-mode #app-container{
         margin: 0 !important; 
     }
 
-    /* Vyladění textu, aby se tam vše rozumně vešlo */
     .modal-content p, 
     .modal-content div, 
     .modal-content td {
@@ -371,7 +382,6 @@ body.admin-mode #app-container{
         margin: 4px 0 !important;
     }
 
-    /* Silnější a větší hlavní nadpis */
     #receipt-main-title { 
         font-size: 19px !important; 
         margin-top: 10px !important;
@@ -380,7 +390,6 @@ body.admin-mode #app-container{
         font-weight: 900 !important;
     }
 
-    /* Tenká dělicí čára, kterou sis přál */
     hr {
         border: none !important;
         border-top: 1px dashed black !important;
@@ -393,7 +402,6 @@ body.admin-mode #app-container{
         margin-bottom: 10px !important;
     }
 
-    /* Jasně oddělená CELKOVÁ CENA v rámečku */
     .modal-content h2 {
         display: block !important;
         font-size: 18px !important; 
@@ -405,7 +413,6 @@ body.admin-mode #app-container{
         border-bottom: 2px dashed black !important;
     }
 
-    /* --- MAPA --- */
     #receipt-map { 
         border: 2px solid black !important; 
         height: 180px !important; 
@@ -414,25 +421,6 @@ body.admin-mode #app-container{
         margin-bottom: 15px !important;
         display: block !important;
         background: white !important;
-    }
-
-    .leaflet-tile-pane {
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-    }
-    
-    .leaflet-container { background: white !important; }
-
-    /* --- VYNUCENÍ SVĚTLÉ MAPY PŘI TISKU V NOČNÍM REŽIMU --- */
-    body.dark-mode .leaflet-tile,
-    body.dark-mode .leaflet-control-zoom-in,
-    body.dark-mode .leaflet-control-zoom-out,
-    body.dark-mode .leaflet-control-attribution {
-        filter: none !important;
-        -webkit-filter: none !important;
-    }
-    body.dark-mode .leaflet-container {
-        background: white !important; 
     }
 }
    /* --- RYCHLOMĚR (SPEEDOMETER) --- */
@@ -3200,72 +3188,72 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         document.getElementById('receipt-modal').style.display = 'none';
     }
 
-   function executePrint() {
-    const actionBtns = document.getElementById('receipt-action-buttons');
-    const mapContainer = document.getElementById('receipt-map');
-    const modalContent = document.querySelector('.modal-content');
-    const appContainer = document.getElementById('app-container');
+  function executePrint() {
+        const actionBtns = document.getElementById('receipt-action-buttons');
+        const mapContainer = document.getElementById('receipt-map');
+        const modalContent = document.querySelector('.modal-content');
+        const appContainer = document.getElementById('app-container');
 
-    // 1. Skryjeme tlačítka a TVRDĚ SKRYJEME pozadí aplikace pomocí !important
-    actionBtns.style.display = 'none';
-    if (appContainer) {
-        appContainer.style.setProperty('display', 'none', 'important');
-    }
-
-    // 2. Simulace šířky 5,6 cm (210px) na obrazovce
-    const originalWidth = modalContent.style.width;
-    modalContent.style.width = '210px'; 
-    
-    // Vynutíme zobrazení pod sebou pro mapu
-    const topContainer = modalContent.firstElementChild;
-    topContainer.style.display = 'block';
-    for (let i = 0; i < topContainer.children.length; i++) {
-        topContainer.children[i].style.width = '100%';
-        topContainer.children[i].style.maxWidth = '100%';
-        topContainer.children[i].style.display = 'block';
-    }
-
-    mapContainer.style.height = '180px';
-
-    // 3. Řekneme mapě, že je úzká, a zacentrujeme trasu
-    if (receiptMap) {
-        receiptMap.invalidateSize();
-        let bounds = L.latLngBounds();
-        receiptMap.eachLayer(function (layer) {
-            if (layer instanceof L.Marker) {
-                bounds.extend(layer.getLatLng());
-            } else if (layer instanceof L.Polyline) {
-                bounds.extend(layer.getBounds());
-            }
-        });
-        if (bounds.isValid()) {
-            receiptMap.fitBounds(bounds, { padding: [10, 10] });
-        }
-    }
-
-    // 4. Počkáme 1,5s a tiskneme
-    setTimeout(() => {
-        window.print();
-        
-        // 5. Návrat do původního stavu
-        actionBtns.style.display = 'block';
+        // 1. Skryjeme tlačítka a TVRDĚ SKRYJEME pozadí aplikace
+        actionBtns.style.display = 'none';
         if (appContainer) {
-            appContainer.style.removeProperty('display'); // Vrátí zobrazení aplikace zpět
+            appContainer.style.setProperty('display', 'none', 'important');
         }
-        modalContent.style.width = originalWidth;
+
+        // 2. Simulace šířky 5,6 cm (210px) na obrazovce
+        const originalWidth = modalContent.style.width;
+        modalContent.style.width = '210px'; 
         
-        topContainer.style.display = 'flex';
+        // Vynutíme zobrazení pod sebou pro mapu
+        const topContainer = modalContent.firstElementChild;
+        topContainer.style.display = 'block';
         for (let i = 0; i < topContainer.children.length; i++) {
-            topContainer.children[i].style.width = '';
-            topContainer.children[i].style.maxWidth = i === 0 ? '400px' : '';
-            topContainer.children[i].style.display = i === 1 ? 'flex' : 'block';
+            topContainer.children[i].style.width = '100%';
+            topContainer.children[i].style.maxWidth = '100%';
+            topContainer.children[i].style.display = 'block';
         }
-        mapContainer.style.height = '350px';
-        
-        if (receiptMap) receiptMap.invalidateSize();
-        
-    }, 1500);
-}
+
+        mapContainer.style.height = '180px';
+
+        // 3. Řekneme mapě, že je úzká, a zacentrujeme trasu
+        if (receiptMap) {
+            receiptMap.invalidateSize();
+            let bounds = L.latLngBounds();
+            receiptMap.eachLayer(function (layer) {
+                if (layer instanceof L.Marker) {
+                    bounds.extend(layer.getLatLng());
+                } else if (layer instanceof L.Polyline) {
+                    bounds.extend(layer.getBounds());
+                }
+            });
+            if (bounds.isValid()) {
+                receiptMap.fitBounds(bounds, { padding: [10, 10] });
+            }
+        }
+
+        // 4. Počkáme 2s a tiskneme (2s jsou kvůli bezpečnému načtení mapy pro tiskárnu)
+        setTimeout(() => {
+            window.print();
+            
+            // 5. Návrat do původního stavu
+            actionBtns.style.display = 'block';
+            if (appContainer) {
+                appContainer.style.removeProperty('display');
+            }
+            modalContent.style.width = originalWidth;
+            
+            topContainer.style.display = 'flex';
+            for (let i = 0; i < topContainer.children.length; i++) {
+                topContainer.children[i].style.width = '';
+                topContainer.children[i].style.maxWidth = i === 0 ? '400px' : '';
+                topContainer.children[i].style.display = i === 1 ? 'flex' : 'block';
+            }
+            mapContainer.style.height = '350px';
+            
+            if (receiptMap) receiptMap.invalidateSize();
+            
+        }, 2000);
+    }
 // --- FUNKCE PRO ODESLÁNÍ PDF ELEKTRONICKY (WhatsApp, E-mail, atd.) ---
     async function sendReceiptEmail() {
         const actionBtns = document.getElementById('receipt-action-buttons');
