@@ -3181,64 +3181,67 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
     }
 
     function executePrint() {
-        const actionBtns = document.getElementById('receipt-action-buttons');
-        const mapContainer = document.getElementById('receipt-map');
-        const modalContent = document.querySelector('.modal-content');
-        
-        // 1. Skryjeme tlačítka
-        actionBtns.style.display = 'none';
+    const actionBtns = document.getElementById('receipt-action-buttons');
+    const mapContainer = document.getElementById('receipt-map');
+    const modalContent = document.querySelector('.modal-content');
+    const appContainer = document.getElementById('app-container'); // NOVÉ: Uchopení pozadí aplikace
 
-        // 2. Simulace šířky 5,6 cm (210px) na obrazovce
-        const originalWidth = modalContent.style.width;
-        modalContent.style.width = '210px'; 
-        
-        // Vynutíme zobrazení pod sebou pro mapu
-        const topContainer = modalContent.firstElementChild;
-        topContainer.style.display = 'block';
-        for (let i = 0; i < topContainer.children.length; i++) {
-            topContainer.children[i].style.width = '100%';
-            topContainer.children[i].style.maxWidth = '100%';
-            topContainer.children[i].style.display = 'block';
-        }
+    // 1. Skryjeme tlačítka a TVRDĚ SKRYJEME pozadí aplikace
+    actionBtns.style.display = 'none';
+    if (appContainer) appContainer.style.display = 'none'; // NOVÉ: Jistota pro tablety
 
-        mapContainer.style.height = '180px';
-
-        // 3. Řekneme mapě, že je úzká, a zacentrujeme trasu
-        if (receiptMap) {
-            receiptMap.invalidateSize();
-            let bounds = L.latLngBounds();
-            receiptMap.eachLayer(function (layer) {
-                if (layer instanceof L.Marker) {
-                    bounds.extend(layer.getLatLng());
-                } else if (layer instanceof L.Polyline) {
-                    bounds.extend(layer.getBounds());
-                }
-            });
-            if (bounds.isValid()) {
-                receiptMap.fitBounds(bounds, { padding: [10, 10] });
-            }
-        }
-
-        // 4. Počkáme 1,5s a tiskneme
-        setTimeout(() => {
-            window.print();
-            
-            // 5. Návrat do původního stavu
-            actionBtns.style.display = 'block';
-            modalContent.style.width = originalWidth;
-            
-            topContainer.style.display = 'flex';
-            for (let i = 0; i < topContainer.children.length; i++) {
-                topContainer.children[i].style.width = '';
-                topContainer.children[i].style.maxWidth = i === 0 ? '400px' : '';
-                topContainer.children[i].style.display = i === 1 ? 'flex' : 'block';
-            }
-            mapContainer.style.height = '350px';
-            
-            if (receiptMap) receiptMap.invalidateSize();
-            
-        }, 1500);
+    // 2. Simulace šířky 5,6 cm (210px) na obrazovce
+    const originalWidth = modalContent.style.width;
+    modalContent.style.width = '210px'; 
+    
+    // Vynutíme zobrazení pod sebou pro mapu
+    const topContainer = modalContent.firstElementChild;
+    topContainer.style.display = 'block';
+    for (let i = 0; i < topContainer.children.length; i++) {
+        topContainer.children[i].style.width = '100%';
+        topContainer.children[i].style.maxWidth = '100%';
+        topContainer.children[i].style.display = 'block';
     }
+
+    mapContainer.style.height = '180px';
+
+    // 3. Řekneme mapě, že je úzká, a zacentrujeme trasu
+    if (receiptMap) {
+        receiptMap.invalidateSize();
+        let bounds = L.latLngBounds();
+        receiptMap.eachLayer(function (layer) {
+            if (layer instanceof L.Marker) {
+                bounds.extend(layer.getLatLng());
+            } else if (layer instanceof L.Polyline) {
+                bounds.extend(layer.getBounds());
+            }
+        });
+        if (bounds.isValid()) {
+            receiptMap.fitBounds(bounds, { padding: [10, 10] });
+        }
+    }
+
+    // 4. Počkáme 1,5s a tiskneme
+    setTimeout(() => {
+        window.print();
+        
+        // 5. Návrat do původního stavu
+        actionBtns.style.display = 'block';
+        if (appContainer) appContainer.style.display = ''; // NOVÉ: Vrátíme aplikaci zpět
+        modalContent.style.width = originalWidth;
+        
+        topContainer.style.display = 'flex';
+        for (let i = 0; i < topContainer.children.length; i++) {
+            topContainer.children[i].style.width = '';
+            topContainer.children[i].style.maxWidth = i === 0 ? '400px' : '';
+            topContainer.children[i].style.display = i === 1 ? 'flex' : 'block';
+        }
+        mapContainer.style.height = '350px';
+        
+        if (receiptMap) receiptMap.invalidateSize();
+        
+    }, 1500);
+}
 
 // --- FUNKCE PRO ODESLÁNÍ PDF ELEKTRONICKY (WhatsApp, E-mail, atd.) ---
     async function sendReceiptEmail() {
