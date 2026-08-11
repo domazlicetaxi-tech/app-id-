@@ -288,25 +288,53 @@ body.admin-mode #app-container{
         .admin-filters input:focus { border-color: var(--green-primary); }
         .admin-filters .btn-filter-reset { background: #64748b; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; }
  /* --- STYLY PRO TISK (Schová aplikaci a vytiskne jen účtenku) --- */
-        @media print {
-            body * { visibility: hidden; }
-            #receipt-modal, #receipt-modal * { visibility: visible; }
-            #receipt-modal {
-                position: absolute; left: 0; top: 0; background: white; padding: 0; margin: 0;
-                width: 100%; height: auto; display: block !important;
-            }
-            .modal-content {
-                box-shadow: none !important; border: none !important; padding: 10px !important;
-                width: 100% !important; max-width: 100% !important; margin: 0 auto;
-            }
-            #receipt-action-buttons { display: none !important; }
-            #receipt-map { border: 1px solid #000 !important; }
-            /* Vynucení tisku grafiky pro mapu */
-            .leaflet-tile-pane {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-        }
+@media print {
+    /* Odstraní URL adresy, datum a čísla stránek z okrajů */
+    @page { margin: 0; }
+    
+    body * { visibility: hidden; }
+    #receipt-modal, #receipt-modal * { visibility: visible; }
+    
+    #receipt-modal {
+        position: absolute; left: 0; top: 0; background: white; padding: 0; margin: 0;
+        width: 100%; height: auto; display: block !important;
+    }
+    
+    .modal-content {
+        box-shadow: none !important; border: none !important; padding: 0 !important;
+        width: 100% !important; max-width: 100% !important; margin: 0 auto;
+    }
+    
+    #receipt-action-buttons { display: none !important; }
+
+    /* --- ÚPRAVY PRO TERMOTISKÁRNU A MAPU POD TEXTEM --- */
+    /* Zruší rozložení vedle sebe a dá prvky pod sebe */
+    .modal-content > div:first-child {
+        display: block !important; 
+    }
+    
+    /* Roztáhne vše (text i mapu) na celou šířku papíru */
+    .modal-content > div:first-child > div {
+        min-width: 100% !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        display: block !important;
+    }
+
+    /* Upraví ohraničení a zkrátí výšku mapy, ať neplýtvá papírem */
+    #receipt-map { 
+        border: 2px solid #000 !important; 
+        height: 200px !important; 
+        margin-top: 15px !important;
+    }
+    /* -------------------------------------------------- */
+
+    /* Vynucení tisku grafiky pro mapu */
+    .leaflet-tile-pane {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
    /* --- RYCHLOMĚR (SPEEDOMETER) --- */
 #speedometer {
     width: 65px; 
