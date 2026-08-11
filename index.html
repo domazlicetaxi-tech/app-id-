@@ -316,7 +316,7 @@ body.admin-mode #app-container{
         visibility: visible !important;
         color: black !important;
     }
-
+.leaflet-container, #receipt-map { background: white !important; }
     .modal-content {
         box-shadow: none !important; 
         border: none !important; 
@@ -3176,7 +3176,59 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
     }
 
     function executePrint() {
-        window.print();
+        const actionBtns = document.getElementById('receipt-action-buttons');
+        const modalContent = document.querySelector('.modal-content');
+        const mapContainer = document.getElementById('receipt-map');
+        const topContainer = modalContent.firstElementChild;
+
+        // 1. Skryjeme tlačítka
+        actionBtns.style.display = 'none';
+
+        // 2. Vnutíme oknu na obrazovce úzké rozměry termotiskárny PŘED spuštěním tisku
+        topContainer.style.display = 'block';
+        for (let i = 0; i < topContainer.children.length; i++) {
+            topContainer.children[i].style.width = '100%';
+            topContainer.children[i].style.maxWidth = '100%';
+            topContainer.children[i].style.display = 'block';
+        }
+        
+        mapContainer.style.height = '180px';
+
+        // 3. Řekneme mapě, že se zmenšila, a donutíme ji vycentrovat CELOU trasu
+        if (receiptMap) {
+            receiptMap.invalidateSize();
+            
+            let bounds = L.latLngBounds();
+            receiptMap.eachLayer(function (layer) {
+                if (layer instanceof L.Marker) {
+                    bounds.extend(layer.getLatLng());
+                } else if (layer instanceof L.Polyline) {
+                    bounds.extend(layer.getBounds());
+                }
+            });
+
+            if (bounds.isValid()) {
+                receiptMap.fitBounds(bounds, { padding: [15, 15] });
+            }
+        }
+
+        // 4. Počkáme 800ms, aby se načetly správné mapové čtverce, a pak teprve tiskneme
+        setTimeout(() => {
+            window.print();
+            
+            // 5. Vrátíme vše do původního širokého stavu pro zobrazení na tabletu
+            actionBtns.style.display = 'block';
+            topContainer.style.display = 'flex';
+            for (let i = 0; i < topContainer.children.length; i++) {
+                topContainer.children[i].style.width = '';
+                topContainer.children[i].style.maxWidth = i === 0 ? '400px' : '';
+                topContainer.children[i].style.display = i === 1 ? 'flex' : 'block';
+            }
+            mapContainer.style.height = '350px';
+            
+            if (receiptMap) receiptMap.invalidateSize();
+            
+        }, 800);
     }
 
 // --- FUNKCE PRO ODESLÁNÍ PDF ELEKTRONICKY (WhatsApp, E-mail, atd.) ---
