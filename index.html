@@ -291,17 +291,23 @@ body.admin-mode #app-container{
 @media print {
     @page { margin: 0; size: auto; }
     
-    /* Jistota: Vynucené skrytí hlavních kontejnerů mimo účtenku */
-    #app-container, #taxameter-top-panel, #edit-history-modal {
+    /* --- NOVÉ: EXTRÉMNĚ SPECIFICKÁ PRAVIDLA PRO SKRYTÍ POZADÍ --- */
+    body.admin-mode #app-container,
+    body.admin-mode #panel,
+    #app-container,
+    #taxameter-top-panel,
+    #edit-history-modal {
         display: none !important;
+        height: 0 !important;
+        overflow: hidden !important;
     }
     
-    /* Schováme úplně vše kromě účtenky */
+    /* Schováme úplně vše kromě účtenky (původní pravidlo) */
     body > *:not(#receipt-modal) {
         display: none !important;
     }
     
-    /* Změněno: Omezíme výšku, aby netiskl prázdný papír */
+    /* Zabrání tisku prázdných stránek */
     html, body {
         background: white !important;
         margin: 0 !important;
@@ -311,6 +317,8 @@ body.admin-mode #app-container{
         min-height: auto !important;
         overflow: visible !important;
     }
+
+    /* ... zbytek tiskového CSS zůstává (úzký modal, atd.) ... */
 
     #receipt-modal {
         display: block !important;
