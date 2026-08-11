@@ -3091,7 +3091,7 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
     let receiptRouting = null;
     let currentReceiptEmailData = { email: "", textBody: "" }; // Zde držíme data pro e-mail
 
-      function drawReceiptMap(startLatLng, endLatLng, addBase, trailCoords = null, waypoints = null) {
+    function drawReceiptMap(startLatLng, endLatLng, addBase, trailCoords = null, waypoints = null) {
         const mapEl = document.getElementById('receipt-map');
         if (!startLatLng) { mapEl.style.display = 'none'; return; }
         
@@ -3110,45 +3110,50 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
 
         const baseCoords = L.latLng(49.439841, 12.927355);
         
-        // Zobrazí základnu na účtence jen když je to explicitně povoleno
+        // 1. Zobrazí základnu na účtence (ikona domečku/základny), pokud jde o jízdu mimo město
         if (addBase) {
             L.marker(baseCoords, {icon: iconBase}).addTo(receiptMap); 
         }
 
+        // 2. Vykreslí místo nástupu (panáček)
         L.marker(startLatLng, {icon: iconPickup}).addTo(receiptMap);
         
         if (trailCoords && trailCoords.length > 0) {
-         // NAKRESLENÍ REÁLNÉ STOPY TAXAMETRU BEZ OSRM VÝPOČTU
-         let finalPoint = trailCoords[trailCoords.length - 1];
-         L.marker(finalPoint, {icon: iconDropoff}).addTo(receiptMap);
+            // NAKRESLENÍ REÁLNÉ STOPY TAXAMETRU BEZ OSRM VÝPOČTU (Z ulice)
+            let finalPoint = trailCoords[trailCoords.length - 1];
+            L.marker(finalPoint, {icon: iconDropoff}).addTo(receiptMap);
 
-         let trailPolyline = L.polyline(trailCoords, { color: '#ef4444', opacity: 0.9, weight: 6 }).addTo(receiptMap);
+            let trailPolyline = L.polyline(trailCoords, { color: '#ef4444', opacity: 0.9, weight: 6 }).addTo(receiptMap);
 
-         setTimeout(() => { receiptMap.fitBounds(trailPolyline.getBounds(), { padding: [15, 15] }); }, 300);
+            setTimeout(() => { receiptMap.fitBounds(trailPolyline.getBounds(), { padding: [15, 15] }); }, 300);
 
-     } else if (endLatLng) {
-         L.marker(endLatLng, {icon: iconDropoff}).addTo(receiptMap);
+        } else if (endLatLng) {
+            // 3. Vykreslí místo výstupu (praporek)
+            L.marker(endLatLng, {icon: iconDropoff}).addTo(receiptMap);
 
-         let routePoints = [];
+            let routePoints = [];
             
-            // Konstrukce cesty se striktními body (createWaypoint vynutí otočení na místě)
+            // Konstrukce cesty se striktními body
             if (addBase) {
-                routePoints.push(createWaypoint(baseCoords));
+                routePoints.push(createWaypoint(baseCoords)); // Trasa začíná na centrále
             }
-            routePoints.push(createWaypoint(startLatLng));
+            routePoints.push(createWaypoint(startLatLng)); // Pokračuje k zákazníkovi
             
-            // PŘIDÁNO: Vložení zákazníkových průjezdných bodů před cílem
+            // 4. OPRAVA: Vložení průjezdných bodů A VYKRESLENÍ KULIČEK
             if (waypoints && Array.isArray(waypoints)) {
                 waypoints.forEach(wp => {
                     if (wp.lat && wp.lng) {
-                        routePoints.push(createWaypoint(L.latLng(wp.lat, wp.lng)));
+                        let wpLatLng = L.latLng(wp.lat, wp.lng);
+                        routePoints.push(createWaypoint(wpLatLng)); // Přidá bod do výpočtu trasy
+                        L.marker(wpLatLng, {icon: iconWaypoint}).addTo(receiptMap); // VYKRESLÍ KULIČKU NA ÚČTENKU
                     }
                 });
             }
 
-            routePoints.push(createWaypoint(endLatLng));
+            routePoints.push(createWaypoint(endLatLng)); // Trasa do cíle
+            
             if (addBase) {
-                routePoints.push(createWaypoint(baseCoords));
+                routePoints.push(createWaypoint(baseCoords)); // Trasa zpět na centrálu
             }
 
             receiptRouting = L.Routing.control({
