@@ -2192,34 +2192,6 @@ if (!isUserInteracting && !isMapPicking && routingControls.length === 0 && !docu
     }
 
     function stopAlarm() { if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; } }
-// --- TELEGRAM NOTIFIKACE ---
-    const TELEGRAM_BOT_TOKEN = '8967650203:AAFPvp4KLWg5lO9_HNvg4vfpyrCA6JdlbzE'; // <-- ZDE VLOŽ SVŮJ TOKEN
-    const TELEGRAM_CHAT_ID = '-5356428091';             // <-- ZDE VLOŽ ID SKUPINY
-
-    function sendTelegramNotification(order) {
-        if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
-
-        const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-        
-        const customerName = order.customerName || order.name || order.clientName || order.userName || "Neznámý zákazník";
-        const pickup = order.pickup || "Neznámá adresa";
-        const dropoff = order.dropoff ? `\n🏁 <b>Do:</b> ${order.dropoff}` : "";
-        
-        const message = `🚨 <b>NOVÁ OBJEDNÁVKA TAXI</b> 🚨\n\n👤 <b>Zákazník:</b> ${customerName}\n📍 <b>Z:</b> ${pickup}${dropoff}`;
-
-        fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                chat_id: TELEGRAM_CHAT_ID,
-                text: message,
-                parse_mode: 'HTML'
-            })
-        }).catch(err => console.error("Chyba Telegramu:", err));
-    }
-    // ----------------------------    
 
     // --- HLAVNÍ POSLUCHAČ DATABÁZE ---
     function initFirebaseOrders() {
@@ -2250,8 +2222,7 @@ if (!isUserInteracting && !isMapPicking && routingControls.length === 0 && !docu
                 
                 const latestOrder = newOrders[0]; 
                 if (latestOrder) {
-                    sendTelegramNotification(latestOrder);
-                }
+                             }
             }
             lastNewOrdersCount = newOrders.length;
             document.getElementById('btn-top-orders').innerText = `Objednávky (${newOrders.length})`;
