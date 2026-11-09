@@ -3938,34 +3938,90 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         if (adminActiveOrdersListener) adminActiveOrdersListener();
 
         adminActiveOrdersListener = db.collection("taxi_orders")
-            .where("status", "in", ["Nová", "Potvrzeno", "Už jdu", "Zákazník ve voze"])
+            .where("status", "in", ["Nová", "Potvrzeno", "Přistaveno", "Už jdu", "Zákazník nastoupil", "Zákazník ve voze"])
             .onSnapshot(snapshot => {
                 container.innerHTML = '';
                 if (snapshot.empty) { container.innerHTML = '<div class="admin-fullscreen-box"><p style="font-size:13px; font-style:italic;">Žádné aktivní objednávky.</p></div>'; return; }
                 
+                let activeDocs = [];
+                snapshot.forEach(doc => activeDocs.push({ id: doc.id, ...doc.data() }));
+                activeDocs.sort((a, b) => {
+                    let tA = a.date && a.date.seconds ? a.date.seconds : (a.timestamp && a.timestamp.seconds ? a.timestamp.seconds : 0);
+                    let tB = b.date && b.date.seconds ? b.date.seconds : (b.timestamp && b.timestamp.seconds ? b.timestamp.seconds : 0);
+                    return tB - tA;
+                });
+
                 let html = '<div class="admin-fullscreen-box">';
-                snapshot.forEach(doc => {
-                    const data = doc.data();
+                activeDocs.forEach(data => {
                     const pLat = data.pickupLat || (data.coordsData?.pickup?.lat) || null;
                     const pLng = data.pickupLng || (data.coordsData?.pickup?.lng) || null;
                     const dLat = data.dropoffLat || (data.coordsData?.dropoff?.lat) || null;
-                    const dLng = data.dropoffLat || (data.coordsData?.dropoff?.lng) || null;
+                    const dLng = data.dropoffLng || (data.coordsData?.dropoff?.lng) || null;
                     const calcPrice = data.price || data.calculatedPrice || 'Nezadána';
+                    const calcDist = data.distance || data.distKm || 0;
+
+                    // Zjištění data a času objednávky
+                    let orderDate = null;
+                    if (data.date && data.date.seconds) { orderDate = new Date(data.date.seconds * 1000); }
+                    else if (data.timestamp && data.timestamp.seconds) { orderDate = new Date(data.timestamp.seconds * 1000); }
+                    else if (data.date) { orderDate = new Date(data.date); }
+
+                    let dateStr = (orderDate && !isNaN(orderDate)) ? orderDate.toLocaleDateString('cs-CZ') : '';
+                    let timeStr = data.time || ((orderDate && !isNaN(orderDate)) ? orderDate.toLocaleTimeString('cs-CZ') : 'Neznámý čas');
+                    let fullDateTime = dateStr ? `${dateStr} v ${timeStr}` : timeStr;
+
+                    // Přesný popis a barva stavu objednávky
+                    let displayStatus = data.status || 'Nová';
+                    let badgeBg = '#f59e0b';
+                    let badgeColor = '#000';
+                    let borderCol = 'var(--warning-amber)';
+
+                    if (data.status === 'Nová') {
+                        displayStatus = '🔴 NOVÁ (Čeká na přijetí)';
+                        badgeBg = '#ef4444'; badgeColor = '#fff'; borderCol = 'var(--danger-red)';
+                    } else if (data.status === 'Potvrzeno' && data.driverArrived) {
+                        displayStatus = '👋 ŘIDIČ NA MÍSTĚ (Čeká na zákazníka)';
+                        badgeBg = '#8b5cf6'; badgeColor = '#fff'; borderCol = '#8b5cf6';
+                    } else if (data.status === 'Potvrzeno') {
+                        displayStatus = `🚗 PŘIJATO – Řidič jede k zákazníkovi${data.eta ? ' (ETA: ' + data.eta + ' min)' : ''}`;
+                        badgeBg = '#f59e0b'; badgeColor = '#000'; borderCol = 'var(--warning-amber)';
+                    } else if (data.status === 'Přistaveno') {
+                        displayStatus = '👋 PŘISTAVENO (Čeká na zákazníka)';
+                        badgeBg = '#8b5cf6'; badgeColor = '#fff'; borderCol = '#8b5cf6';
+                    } else if (data.status === 'Už jdu') {
+                        displayStatus = '🏃 ZÁKAZNÍK KLIKL: UŽ JDU';
+                        badgeBg = '#10b981'; badgeColor = '#fff'; borderCol = '#10b981';
+                    } else if (data.status === 'Zákazník nastoupil' || data.status === 'Zákazník ve voze') {
+                        displayStatus = '🟢 ZÁKAZNÍK VE VOZE (Probíhá jízda)';
+                        badgeBg = '#2563eb'; badgeColor = '#fff'; borderCol = 'var(--driver-blue)';
+                    }
+
+                    let driverInfoHtml = '';
+                    if (data.driverName) {
+                        driverInfoHtml = `<br>🚕 <strong>Vyřizuje řidič:</strong> <span style="color:var(--driver-blue); font-weight:bold;">${data.driverName}</span> ${data.driverCar ? `(${data.driverCar} – ${data.driverSpz || ''})` : ''}`;
+                    }
+
+                    const phone = data.customerPhone || data.phone || data.clientPhone || data.userPhone || '';
 
                     html += `
-                        <div class="driver-item" style="border-left: 4px solid var(--warning-amber);">
-                            <div class="driver-item-header">
-                                <strong>${data.customerName || data.name || 'Zákazník'}</strong>
-                                <span style="background:#f59e0b; color:#000; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold;">${data.status}</span>
+                        <div class="driver-item" style="border-left: 5px solid ${borderCol};">
+                            <div class="driver-item-header" style="flex-wrap: wrap; gap: 6px;">
+                                <div>
+                                    <strong style="font-size: 15px;">👤 ${data.customerName || data.name || 'Zákazník'}</strong>
+                                    ${phone ? `<a href="tel:${phone}" style="margin-left:8px; font-size:12px; color:var(--driver-blue); text-decoration:none; font-weight:bold;">📞 ${phone}</a>` : ''}
+                                </div>
+                                <span style="background:${badgeBg}; color:${badgeColor}; padding:4px 8px; border-radius:4px; font-size:11px; font-weight:bold;">${displayStatus}</span>
                             </div>
-                            <div style="font-size:13px; margin-bottom:8px; line-height: 1.4;">
-                                📍 <strong>Od:</strong> ${data.pickup}<br>
+                            <div style="font-size:13px; margin-bottom:8px; line-height: 1.5; margin-top: 6px;">
+                                🕒 <strong>Čas objednání:</strong> <span style="font-weight:bold;">${fullDateTime}</span><br>
+                                📍 <strong>Od:</strong> ${data.pickup || 'Nezadáno'}<br>
                                 🏁 <strong>Do:</strong> ${data.dropoff || 'Nezadáno'}<br>
-                                💰 <strong>Předvypočítaná cena:</strong> ${calcPrice} Kč
+                                💰 <strong>Cena:</strong> ${calcPrice} ${calcPrice !== 'Nezadána' ? 'Kč' : ''} ${calcDist ? `(${calcDist} km)` : ''}
+                                ${driverInfoHtml}
                             </div>
                             <div class="admin-btn-group">
-                                <button class="btn-admin-action btn-admin-map" onclick="viewCustomerRoute(${pLat}, ${pLng}, ${dLat}, ${dLng})">🗺️ Zobrazit trasu & kde stojí</button>
-                                <button class="btn-delete" onclick="deleteGlobalOrder('${doc.id}')" style="margin:0; width:auto; padding:8px 14px;">Smazat objednávku</button>
+                                <button class="btn-admin-action btn-admin-map" onclick="viewCustomerRoute(${pLat}, ${pLng}, ${dLat}, ${dLng}, '${calcPrice}', '${calcDist}')">🗺️ Zobrazit trasu & kde stojí</button>
+                                <button class="btn-delete" onclick="deleteGlobalOrder('${data.id}')" style="margin:0; width:auto; padding:8px 14px;">Smazat objednávku</button>
                             </div>
                         </div>`;
                 });
