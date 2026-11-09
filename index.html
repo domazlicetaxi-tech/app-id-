@@ -2,6 +2,7 @@
 <html lang="cs">
 <head>
     <meta charset="UTF-8">
+    <meta name="referrer" content="origin" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Taxi Green - Dispečink a Taxametr</title>
     
@@ -1527,8 +1528,8 @@ let lastRecalcTime = 0;       // Zabrání zacyklení dotazů na server při sje
         }
 
         return L.Routing.osrmv1({
-            serviceUrl: 'https://router.project-osrm.org/route/v1',
-            profile: 'car',
+            serviceUrl: 'https://routing.openstreetmap.de/routed-car/route/v1',
+            profile: 'driving',
             useHints: false,
             routingOptions: options
         });
@@ -3094,7 +3095,7 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
 
         if (!receiptMap) {
             receiptMap = L.map('receipt-map', { zoomControl: false, attributionControl: false, preferCanvas: true }).setView(startLatLng, 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(receiptMap);
+            L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', { crossOrigin: true }).addTo(receiptMap);
         } else {
             receiptMap.eachLayer((layer) => { if (layer instanceof L.Marker || layer instanceof L.Polyline) receiptMap.removeLayer(layer); });
             if (receiptRouting) { receiptMap.removeControl(receiptRouting); receiptRouting = null; }
@@ -3361,7 +3362,7 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
     }
 
     let map = L.map('map', { rotate: true, touchZoom: true, zoomControl: false }).setView([49.4398, 12.9304], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+    L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', crossOrigin: true }).addTo(map);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     // PŘESUN NAŠEPTÁVAČE: Box se vloží přímo do mapy, takže se zarovná k jejímu hornímu okraji
 document.getElementById('map').appendChild(document.getElementById('nav-instruction-box'));
@@ -4161,7 +4162,7 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         let isTaximeter = (data.customerName === "Zákazník z ulice (Taxametr)");
         let addBase = !isTaximeter && (ratePerKm !== 34);
 
-        viewFullCustomerRoute(data.pickupLat, data.pickupLng, data.dropoffLat, data.dropoffLng, data.waypointsCoords, addBase);
+        viewFullCustomerRoute(data.pickupLat, data.pickupLng, data.dropoffLat, data.dropoffLng, data.waypointsCoords, addBase, data.routeTrail, price, dist, data.pickup, data.dropoff);
     }
 
 // --- TISK Z HISTORIE ---
@@ -4284,7 +4285,17 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         drawReceiptMap(pLatLng, dLatLng, addBase, tCoords, customerWaypoints);
     }
 
-       function viewFullCustomerRoute(pLat, pLng, dLat, dLng, waypoints, addBase) {
+       function viewFullCustomerRoute(pLat, pLng, dLat, dLng, waypoints, addBase, routeTrail = null, histPrice = 0, histDist = 0, pickupAddr = "", dropoffAddr = "") {
+        if ((!pLat || !pLng) && routeTrail && Array.isArray(routeTrail) && routeTrail.length > 0) {
+            pLat = routeTrail[0].lat;
+            pLng = routeTrail[0].lng;
+        }
+        if ((!dLat || !dLng) && routeTrail && Array.isArray(routeTrail) && routeTrail.length > 1) {
+            let lastPt = routeTrail[routeTrail.length - 1];
+            dLat = lastPt.lat;
+            dLng = lastPt.lng;
+        }
+
         if (!pLat || !pLng) return alert("Chybí GPS souřadnice místa nakládky pro vykreslení trasy.");
         
         showSection('section-app');
@@ -4294,9 +4305,34 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
         clearRoutes();
         tempMarkers.clearLayers(); 
         
+        if (pickupAddr) document.getElementById('pickup').value = pickupAddr;
+        if (dropoffAddr) document.getElementById('dropoff').value = dropoffAddr;
+        if (histDist > 0) document.getElementById('dist-val').innerText = parseFloat(histDist).toFixed(2);
+        if (histPrice > 0) document.getElementById('price-val').innerText = Math.round(histPrice);
+        
         let baseCoords = L.latLng(49.439841, 12.927355);
         let pickupLatLng = L.latLng(pLat, pLng);
         let dropoffLatLng = (dLat && dLng) ? L.latLng(dLat, dLng) : null;
+
+        setTimeout(() => { if (typeof map !== 'undefined') map.invalidateSize(); }, 300);
+
+        // Pokud má jízda uloženou GPS stopu z taxametru (routeTrail), vykreslíme přímo ji:
+        if (routeTrail && Array.isArray(routeTrail) && routeTrail.length > 0) {
+            let trailLatLngs = routeTrail.map(pt => L.latLng(pt.lat, pt.lng));
+            L.marker(trailLatLngs[0], {icon: iconPickup}).addTo(tempMarkers).bindPopup("Start jízdy (Taxametr)").openPopup();
+            if (trailLatLngs.length > 1) {
+                L.marker(trailLatLngs[trailLatLngs.length - 1], {icon: iconDropoff}).addTo(tempMarkers).bindPopup("Cíl jízdy (Taxametr)");
+            }
+            activeNavPolyline = L.polyline(trailLatLngs, { color: '#ef4444', opacity: 0.9, weight: 6 }).addTo(map);
+            setTimeout(() => {
+                if (typeof map !== 'undefined') {
+                    map.invalidateSize();
+                    map.fitBounds(activeNavPolyline.getBounds(), { padding: [50, 50] });
+                }
+            }, 400);
+            return;
+        }
+
         let routePoints = [];
 
         // ZÁKLADNA: Přidáme ji pouze, pokud se nejedná o jízdu po městě
@@ -4307,8 +4343,6 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
 
         L.marker(pickupLatLng, {icon: iconPickup}).addTo(tempMarkers).bindPopup("Místo nakládky");
         routePoints.push(createWaypoint(pickupLatLng));
-        
-        setTimeout(() => { if (typeof map !== 'undefined') map.invalidateSize(); }, 300);
         
         if (waypoints && Array.isArray(waypoints)) {
             waypoints.forEach((wp, idx) => {
@@ -4328,21 +4362,35 @@ if (carIconEl) { carIconEl.style.transform = `rotate(${iconRotation}deg)`; }
             }
         }
 
-        let rc = L.Routing.control({
-            waypoints: routePoints,
-            router: getRouter(routePoints.length), 
-            show: false, 
-            addWaypoints: false,
-            createMarker: function() { return null; },
-            lineOptions: { styles: [{ color: '#2563eb', opacity: 0.8, weight: 6 }] }
-        }).addTo(map);
-        
-        rc.on('routesfound', function(e) {
-            let routes = e.routes;
-            setTimeout(() => { map.fitBounds(L.polyline(routes[0].coordinates).getBounds(), { padding: [50, 50] }); }, 400);
-        });
-        
-        routingControls.push(rc);
+        if (routePoints.length > 1) {
+            let rc = L.Routing.control({
+                waypoints: routePoints,
+                router: getRouter(routePoints.length), 
+                show: false, 
+                addWaypoints: false,
+                createMarker: function() { return null; },
+                lineOptions: { styles: [{ color: '#2563eb', opacity: 0.8, weight: 6 }] }
+            }).addTo(map);
+            
+            rc.on('routesfound', function(e) {
+                let routes = e.routes;
+                setTimeout(() => {
+                    if (typeof map !== 'undefined') {
+                        map.invalidateSize();
+                        map.fitBounds(L.polyline(routes[0].coordinates).getBounds(), { padding: [50, 50] });
+                    }
+                }, 400);
+            });
+            
+            routingControls.push(rc);
+        } else {
+            setTimeout(() => {
+                if (typeof map !== 'undefined') {
+                    map.invalidateSize();
+                    map.setView(pickupLatLng, 16);
+                }
+            }, 400);
+        }
     }
 
     async function deleteGlobalOrder(docId) {
